@@ -15,3 +15,6 @@ _run_local_nb.py
 
 # Modelos descargados localmente (pesos grandes, no versionar)
 models/
+
+# Tokens/credenciales locales (ver .env.example para el formato)
+.env

@@ -9,12 +9,15 @@ contiene dos bloques independientes:
 2. **Demos locales con Ollama** (`ollama_gemma_example.py`, `rag_simple.py`): chat con
    el modelo Gemma y un RAG simple 100% local. Requieren tener Ollama instalado.
 
-Además hay dos notebooks de verificación con modelos abiertos de Hugging Face:
+Además hay tres notebooks de verificación con modelos de Hugging Face:
 - `prueba_modelo_huggingface.ipynb` — corre `distilgpt2` y `distilbert` usando la caché
   por defecto de Hugging Face. Prueba de humo tras instalar las dependencias.
 - `prueba_modelo_local_hf.ipynb` — **descarga** `google/flan-t5-small` a la carpeta
   `./models/` y lo ejecuta desde disco con `local_files_only=True` (útil para correr sin
   internet). La carpeta `models/` está en `.gitignore`, así que los pesos no se suben al repo.
+- `prueba_modelo_hf_remoto.ipynb` — llama a `gpt2` y `distilbert-base-uncased` **sin
+  descargarlos**, vía la Inference API de Hugging Face (`InferenceClient`). Requiere un
+  token gratis de HF — ver [Sección 5](#5-demo-remota-con-la-inference-api-de-hugging-face-opcional).
 
 ---
 
@@ -154,7 +157,44 @@ python rag_simple.py "¿Qué es una base de datos vectorial?"
 
 ---
 
-## 5. Estructura del repositorio
+## 5. Demo remota con la Inference API de Hugging Face (opcional)
+
+`prueba_modelo_hf_remoto.ipynb` llama modelos de Hugging Face **sin descargarlos**: la
+inferencia corre en los servidores de HF (vía `InferenceClient`, provider `hf-inference`,
+que es gratis y no pide tarjeta). Sirve para comparar con el enfoque local de
+`prueba_modelo_huggingface.ipynb`.
+
+### Paso 1 — Conseguir un token gratis
+
+1. Creá una cuenta en [huggingface.co](https://huggingface.co) si no tenés.
+2. Generá un token en [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+   (permiso **Read** alcanza).
+
+### Paso 2 — Guardar el token en un `.env` local
+
+```powershell
+copy .env.example .env
+```
+
+Editá `.env` y completá `HF_TOKEN=hf_...` con tu token real. **Este archivo nunca se sube
+al repo** (está en `.gitignore`) — si no lo creás, el notebook te lo va a pedir de forma
+segura con `getpass` al correrlo.
+
+### Paso 3 — Instalar dependencias y correr
+
+```powershell
+pip install -r requirements-hf-remoto.txt
+```
+
+Abrí `prueba_modelo_hf_remoto.ipynb` y corré las celdas en orden.
+
+> Nota: la Inference API gratuita (`hf-inference`) ya no sirve modelos de generación de
+> texto libre (como `gpt2`) — los movieron a proveedores de pago aparte. Por eso el
+> notebook usa **question answering** y **fill-mask**, que sí están disponibles gratis.
+
+---
+
+## 6. Estructura del repositorio
 
 ```
 curso-llm/
@@ -162,18 +202,21 @@ curso-llm/
 ├── clase1_llm_practica_alumnos.ipynb  # Version para alumnos
 ├── prueba_modelo_huggingface.ipynb    # Notebook de prueba: corre un modelo open de HF (cache)
 ├── prueba_modelo_local_hf.ipynb       # Descarga un modelo de HF a ./models/ y lo corre offline
+├── prueba_modelo_hf_remoto.ipynb      # Llama modelos de HF via Inference API (sin descargar)
 ├── ollama_gemma_example.py            # Demo de chat con Gemma (Ollama)
 ├── rag_simple.py                      # Demo de RAG local (Ollama + ChromaDB)
 ├── iniciar_gemma_demo.ps1             # Lanzador de la demo de Gemma
 ├── iniciar_rag_demo.ps1               # Lanzador de la demo de RAG
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-rag.txt               # Dependencias de las demos de Ollama
+├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
+├── .env.example                       # Plantilla para el token de HF (copiar a .env)
 └── README.md                          # Este archivo
 ```
 
 ---
 
-## 6. Problemas frecuentes
+## 7. Problemas frecuentes
 
 - **`SSLCertVerificationError` al descargar modelos** (redes con proxy corporativo):
   `requirements.txt` ya incluye `pip-system-certs`, que hace que las verificaciones
@@ -196,7 +239,7 @@ curso-llm/
 
 ---
 
-## 7. Notas
+## 8. Notas
 
 - Probado con **Python 3.11** en **Windows** (CPU, sin GPU).
 - Las versiones de `requirements.txt` están fijadas para asegurar reproducibilidad.

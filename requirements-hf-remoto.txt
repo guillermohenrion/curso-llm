@@ -1,0 +1,11 @@
+# Dependencias para prueba_modelo_hf_remoto.ipynb (Inference API de Hugging Face,
+# sin descargar modelos localmente).
+#
+# Requiere ademas un token gratis de Hugging Face:
+#   https://huggingface.co/settings/tokens (permiso "Read" alcanza)
+# Copia .env.example a .env y completa HF_TOKEN=... (ver README, Seccion 5).
+#
+# Instalar con:  pip install -r requirements-hf-remoto.txt
+
+huggingface_hub==0.36.2
+python-dotenv==1.2.1
