@@ -1,0 +1,13 @@
+# Dependencias para las demos locales con Ollama:
+#   - ollama_gemma_example.py  (chat con Gemma)
+#   - rag_simple.py            (RAG: embeddings + ChromaDB + Gemma)
+#
+# Requiere ademas tener Ollama instalado y corriendo (https://ollama.com)
+# y los modelos descargados:
+#   ollama pull gemma3
+#   ollama pull nomic-embed-text
+#
+# Instalar con:  pip install -r requirements-rag.txt
+
+ollama>=0.4.0
+chromadb>=0.5.0
