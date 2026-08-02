@@ -10,3 +10,8 @@ _build_hf_notebook.py
 _run_hf_test.py
 _run_notebook_test.py
 _clase1_ejecutado.ipynb
+_build_local_nb.py
+_run_local_nb.py
+
+# Modelos descargados localmente (pesos grandes, no versionar)
+models/
