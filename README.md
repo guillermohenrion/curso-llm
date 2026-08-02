@@ -9,6 +9,11 @@ contiene dos bloques independientes:
 2. **Demos locales con Ollama** (`ollama_gemma_example.py`, `rag_simple.py`): chat con
    el modelo Gemma y un RAG simple 100% local. Requieren tener Ollama instalado.
 
+Además hay una notebook de verificación rápida (`prueba_modelo_huggingface.ipynb`) que
+descarga y ejecuta un modelo abierto de Hugging Face (`distilgpt2` y `distilbert`) para
+confirmar que el entorno quedó bien configurado. Sirve como prueba de humo tras instalar
+las dependencias.
+
 ---
 
 ## 1. Requisitos previos
@@ -153,6 +158,7 @@ python rag_simple.py "¿Qué es una base de datos vectorial?"
 curso-llm/
 ├── clase1_llm_practica.ipynb          # Notebook principal (Clase 1)
 ├── clase1_llm_practica_alumnos.ipynb  # Version para alumnos
+├── prueba_modelo_huggingface.ipynb    # Notebook de prueba: corre un modelo open de HF
 ├── ollama_gemma_example.py            # Demo de chat con Gemma (Ollama)
 ├── rag_simple.py                      # Demo de RAG local (Ollama + ChromaDB)
 ├── iniciar_gemma_demo.ps1             # Lanzador de la demo de Gemma
