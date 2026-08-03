@@ -198,8 +198,7 @@ Abrí `prueba_modelo_hf_remoto.ipynb` y corré las celdas en orden.
 
 ```
 curso-llm/
-├── clase1_llm_practica.ipynb          # Notebook principal (Clase 1)
-├── clase1_llm_practica_alumnos.ipynb  # Version para alumnos
+├── clase1_llm_practica.ipynb          # Notebook principal (Clase 1), listo para repartir a alumnos
 ├── prueba_modelo_huggingface.ipynb    # Notebook de prueba: corre un modelo open de HF (cache)
 ├── prueba_modelo_local_hf.ipynb       # Descarga un modelo de HF a ./models/ y lo corre offline
 ├── prueba_modelo_hf_remoto.ipynb      # Llama modelos de HF via Inference API (sin descargar)
