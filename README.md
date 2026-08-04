@@ -209,10 +209,18 @@ curso-llm/
 ├── prueba_modelo_hf_remoto.ipynb      # Llama modelos de HF via Inference API (sin descargar)
 ├── ollama_gemma_example.py            # Demo de chat con Gemma (Ollama)
 ├── iniciar_gemma_demo.ps1             # Lanzador de la demo de Gemma
-├── RAG/                               # Demo de RAG local (Ollama + ChromaDB)
-│   ├── rag_simple.py                  #   script principal del RAG
+├── RAG/                               # Demos de RAG
+│   ├── rag_simple.py                  #   RAG local sin frameworks (Ollama + ChromaDB)
 │   ├── iniciar_rag_demo.ps1           #   lanzador de la demo de RAG
-│   └── requirements-rag.txt           #   dependencias del RAG
+│   ├── requirements-rag.txt           #   dependencias del RAG simple
+│   └── langchain/                     #   RAG con LangChain (versiones incrementales)
+│       ├── comun.py                   #     modulo compartido (modelos, corpus, retriever)
+│       ├── 1_rag_basico.py            #     RAG minimo (LCEL)
+│       ├── 2_rag_memoria.py           #     RAG conversacional con memoria avanzada
+│       ├── 3_rag_tools.py             #     agente ReAct con tools
+│       ├── 4_rag_skills.py            #     skills + router
+│       ├── 5_rag_langsmith.py         #     RAG con tracing en LangSmith
+│       └── requirements-langchain.txt #     dependencias de LangChain
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
 ├── .env.example                       # Plantilla para el token de HF (copiar a .env)

@@ -1,0 +1,18 @@
+# Dependencias para los ejemplos de RAG con LangChain + Ollama.
+#
+# Requiere ademas Ollama corriendo (https://ollama.com) y los modelos:
+#   ollama pull gemma3
+#   ollama pull nomic-embed-text
+#
+# Instalar con:  pip install -r requirements-langchain.txt
+
+langchain>=0.3,<0.4
+langchain-core>=0.3,<0.4
+langchain-community>=0.3,<0.4
+langchain-ollama>=0.2
+langchain-chroma>=0.2
+chromadb>=0.5
+
+# Observabilidad / tracing (ejemplo 5)
+langsmith>=0.1
+python-dotenv>=1.0
