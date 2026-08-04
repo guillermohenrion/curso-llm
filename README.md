@@ -25,6 +25,8 @@ Y en la carpeta `RAG/` hay varias variantes de RAG, de menor a mayor complejidad
 - `RAG/langchain/` — 5 versiones incrementales con **LangChain** (básico, memoria, tools,
   skills, LangSmith). Ver [Sección 6](#6-rag-con-langchain-opcional).
 - `RAG/pinecone/` — RAG simple con **Pinecone** (base vectorial en la nube). Ver [Sección 7](#7-rag-con-pinecone-opcional).
+- `RAG/graph/` — **Graph RAG**: recuperación sobre un grafo de conocimiento. Ver [Sección 8](#8-graph-rag-opcional).
+- `RAG/wiki_llm/` — **Wiki-LLM**: RAG sobre una wiki de markdown (patrón de Karpathy). Ver [Sección 9](#9-wiki-llm-opcional).
 
 ## Guía rápida (TL;DR)
 
@@ -296,7 +298,46 @@ métrica coseno, serverless).
 
 ---
 
-## 8. Estructura del repositorio
+## 8. Graph RAG (opcional)
+
+RAG sobre un **grafo de conocimiento** (nodos = conceptos, aristas = relaciones)
+en `RAG/graph/`. Detalle en [`RAG/graph/README.md`](RAG/graph/README.md).
+
+```powershell
+ollama pull gemma3
+ollama pull nomic-embed-text
+pip install -r RAG\graph\requirements-graph.txt
+
+python RAG\graph\rag_grafos.py "¿Que diferencia hay entre Chroma y Pinecone?"
+```
+
+Detecta las entidades relevantes por embeddings, recupera su vecindario (tripletas
+a 1-2 saltos) y le pasa ese subgrafo al LLM como contexto.
+
+---
+
+## 9. Wiki-LLM (opcional)
+
+RAG sobre una **wiki de archivos markdown** (patrón de Andrej Karpathy): el LLM lee
+los archivos directamente, sin embeddings ni base vectorial. En `RAG/wiki_llm/`.
+Detalle en [`RAG/wiki_llm/README.md`](RAG/wiki_llm/README.md).
+
+```powershell
+ollama pull gemma3
+pip install -r RAG\wiki_llm\requirements-wiki.txt
+
+# selectivo (shortlist por Summary/Tags)
+python RAG\wiki_llm\rag_wiki.py "¿Que diferencia hay entre Chroma y Pinecone?"
+# full (carga toda la wiki)
+python RAG\wiki_llm\rag_wiki.py --full "Resumi todo lo que hay sobre RAG"
+```
+
+La base de conocimiento son los `.md` de `RAG/wiki_llm/wiki/`; agregar notas nuevas
+no requiere reindexar nada.
+
+---
+
+## 10. Estructura del repositorio
 
 ```
 curso-llm/
@@ -318,9 +359,16 @@ curso-llm/
 │   │   ├── 4_rag_skills.py            #     skills + router
 │   │   ├── 5_rag_langsmith.py         #     RAG con tracing en LangSmith
 │   │   └── requirements-langchain.txt #     dependencias de LangChain
-│   └── pinecone/                      #   RAG simple con Pinecone (base vectorial en la nube)
-│       ├── rag_pinecone.py            #     script principal (lee token de .env)
-│       └── requirements-pinecone.txt  #     dependencias de Pinecone
+│   ├── pinecone/                      #   RAG simple con Pinecone (base vectorial en la nube)
+│   │   ├── rag_pinecone.py            #     script principal (lee token de .env)
+│   │   └── requirements-pinecone.txt  #     dependencias de Pinecone
+│   ├── graph/                         #   Graph RAG (grafo de conocimiento)
+│   │   ├── rag_grafos.py              #     match de entidades + vecindario + LLM
+│   │   └── requirements-graph.txt     #     dependencias (networkx, numpy, ollama)
+│   └── wiki_llm/                      #   Wiki-LLM (RAG sobre markdown, patron Karpathy)
+│       ├── rag_wiki.py                #     lee la wiki, shortlist y consulta al LLM
+│       ├── requirements-wiki.txt      #     dependencias (solo ollama)
+│       └── wiki/                      #     base de conocimiento (.md)
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
 ├── .env.example                       # Plantilla para el token de HF (copiar a .env)
@@ -329,7 +377,7 @@ curso-llm/
 
 ---
 
-## 9. Problemas frecuentes
+## 11. Problemas frecuentes
 
 - **`SSLCertVerificationError` al descargar modelos** (redes con proxy corporativo):
   `requirements.txt` ya incluye `pip-system-certs`, que hace que las verificaciones
@@ -352,7 +400,7 @@ curso-llm/
 
 ---
 
-## 10. Notas
+## 12. Notas
 
 - Probado con **Python 3.11** en **Windows** (CPU, sin GPU).
 - Las versiones de `requirements.txt` están fijadas para asegurar reproducibilidad.

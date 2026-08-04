@@ -1,0 +1,11 @@
+# Dependencias para el Graph RAG (rag_grafos.py).
+#
+# Requiere ademas Ollama corriendo con:
+#   ollama pull gemma3
+#   ollama pull nomic-embed-text
+#
+# Instalar con:  pip install -r requirements-graph.txt
+
+networkx>=3.0
+numpy>=1.24
+ollama>=0.4.0

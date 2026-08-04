@@ -1,0 +1,10 @@
+# Dependencias para el Wiki-LLM (rag_wiki.py).
+#
+# No usa embeddings ni base vectorial: el LLM lee los archivos markdown directamente.
+# Solo necesita el cliente de Ollama.
+#
+# Requiere ademas Ollama corriendo con:  ollama pull gemma3
+#
+# Instalar con:  pip install -r requirements-wiki.txt
+
+ollama>=0.4.0
