@@ -213,14 +213,17 @@ curso-llm/
 │   ├── rag_simple.py                  #   RAG local sin frameworks (Ollama + ChromaDB)
 │   ├── iniciar_rag_demo.ps1           #   lanzador de la demo de RAG
 │   ├── requirements-rag.txt           #   dependencias del RAG simple
-│   └── langchain/                     #   RAG con LangChain (versiones incrementales)
-│       ├── comun.py                   #     modulo compartido (modelos, corpus, retriever)
-│       ├── 1_rag_basico.py            #     RAG minimo (LCEL)
-│       ├── 2_rag_memoria.py           #     RAG conversacional con memoria avanzada
-│       ├── 3_rag_tools.py             #     agente ReAct con tools
-│       ├── 4_rag_skills.py            #     skills + router
-│       ├── 5_rag_langsmith.py         #     RAG con tracing en LangSmith
-│       └── requirements-langchain.txt #     dependencias de LangChain
+│   ├── langchain/                     #   RAG con LangChain (versiones incrementales)
+│   │   ├── comun.py                   #     modulo compartido (modelos, corpus, retriever)
+│   │   ├── 1_rag_basico.py            #     RAG minimo (LCEL)
+│   │   ├── 2_rag_memoria.py           #     RAG conversacional con memoria avanzada
+│   │   ├── 3_rag_tools.py             #     agente ReAct con tools
+│   │   ├── 4_rag_skills.py            #     skills + router
+│   │   ├── 5_rag_langsmith.py         #     RAG con tracing en LangSmith
+│   │   └── requirements-langchain.txt #     dependencias de LangChain
+│   └── pinecone/                      #   RAG simple con Pinecone (base vectorial en la nube)
+│       ├── rag_pinecone.py            #     script principal (lee token de .env)
+│       └── requirements-pinecone.txt  #     dependencias de Pinecone
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
 ├── .env.example                       # Plantilla para el token de HF (copiar a .env)
