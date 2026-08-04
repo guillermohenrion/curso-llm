@@ -20,6 +20,34 @@ Además hay tres notebooks de verificación con modelos de Hugging Face:
   descargarlos**, vía la Inference API de Hugging Face (`InferenceClient`). Requiere un
   token gratis de HF — ver [Sección 5](#5-demo-remota-con-la-inference-api-de-hugging-face-opcional).
 
+Y en la carpeta `RAG/` hay varias variantes de RAG, de menor a mayor complejidad:
+- `RAG/rag_simple.py` — RAG local sin frameworks (Ollama + ChromaDB). Ver [Sección 4](#4-demos-locales-con-ollama-opcional).
+- `RAG/langchain/` — 5 versiones incrementales con **LangChain** (básico, memoria, tools,
+  skills, LangSmith). Ver [Sección 6](#6-rag-con-langchain-opcional).
+- `RAG/pinecone/` — RAG simple con **Pinecone** (base vectorial en la nube). Ver [Sección 7](#7-rag-con-pinecone-opcional).
+
+## Guía rápida (TL;DR)
+
+```powershell
+# 1. Entorno (una sola vez)
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# 2. Notebook de fundamentos (Clase 1)  -> abrir clase1_llm_practica.ipynb en VS Code
+
+# 3. Cualquier demo con Ollama necesita los modelos:
+ollama pull gemma3
+ollama pull nomic-embed-text
+
+# 4. Elegí qué correr:
+python RAG\rag_simple.py "¿Que es RAG?"                    # RAG local (Chroma)
+python RAG\langchain\1_rag_basico.py "¿Que es RAG?"        # RAG con LangChain
+python RAG\pinecone\rag_pinecone.py "¿Que es RAG?"         # RAG con Pinecone (necesita .env)
+```
+
+Cada sección de abajo explica los detalles y los requisitos de cada bloque.
+
 ---
 
 ## 1. Requisitos previos
@@ -199,7 +227,76 @@ Abrí `prueba_modelo_hf_remoto.ipynb` y corré las celdas en orden.
 
 ---
 
-## 6. Estructura del repositorio
+## 6. RAG con LangChain (opcional)
+
+Cinco ejemplos incrementales en `RAG/langchain/`, todos sobre Ollama
+(`gemma3` + `nomic-embed-text`). Detalle completo en
+[`RAG/langchain/README.md`](RAG/langchain/README.md).
+
+### Paso 1 — Modelos de Ollama (si no los bajaste aún)
+
+```powershell
+ollama pull gemma3
+ollama pull nomic-embed-text
+```
+
+### Paso 2 — Instalar dependencias
+
+```powershell
+pip install -r RAG\langchain\requirements-langchain.txt
+```
+
+### Paso 3 — Correr (en orden de complejidad creciente)
+
+```powershell
+cd RAG\langchain
+
+python 1_rag_basico.py "¿Que es una base de datos vectorial?"   # RAG minimo (LCEL)
+python 2_rag_memoria.py                                          # conversacional con memoria
+python 3_rag_tools.py "¿Que es ChromaDB? Y cuanto es 12*8?"      # agente ReAct con tools
+python 4_rag_skills.py "Traducir: hola mundo"                    # skills + router
+python 5_rag_langsmith.py "¿Que es RAG?"                         # con tracing en LangSmith
+
+cd ..\..
+```
+
+Para el ejemplo 5 (LangSmith) necesitás un token: copiá `RAG\langchain\.env.example`
+a `RAG\langchain\.env` y completá `LANGSMITH_API_KEY`. Sin token el RAG funciona igual,
+pero no registra trazas.
+
+---
+
+## 7. RAG con Pinecone (opcional)
+
+RAG simple usando **Pinecone** (base vectorial en la nube) en vez de ChromaDB.
+Embeddings y generación siguen locales con Ollama. Detalle completo en
+[`RAG/pinecone/README.md`](RAG/pinecone/README.md).
+
+### Paso 1 — Token de Pinecone
+
+Creá una cuenta gratis en [pinecone.io](https://www.pinecone.io), generá una API key
+(https://app.pinecone.io → API Keys) y guardala en un `.env`:
+
+```powershell
+copy RAG\pinecone\.env.example RAG\pinecone\.env
+#  editá el .env y pegá tu PINECONE_API_KEY
+```
+
+### Paso 2 — Instalar dependencias y correr
+
+```powershell
+pip install -r RAG\pinecone\requirements-pinecone.txt
+
+# (con los modelos de Ollama ya descargados)
+python RAG\pinecone\rag_pinecone.py "¿Que es una base de datos vectorial?"
+```
+
+El script crea el índice solo si no existe (dimensión detectada automáticamente,
+métrica coseno, serverless).
+
+---
+
+## 8. Estructura del repositorio
 
 ```
 curso-llm/
@@ -232,7 +329,7 @@ curso-llm/
 
 ---
 
-## 7. Problemas frecuentes
+## 9. Problemas frecuentes
 
 - **`SSLCertVerificationError` al descargar modelos** (redes con proxy corporativo):
   `requirements.txt` ya incluye `pip-system-certs`, que hace que las verificaciones
@@ -255,7 +352,7 @@ curso-llm/
 
 ---
 
-## 8. Notas
+## 10. Notas
 
 - Probado con **Python 3.11** en **Windows** (CPU, sin GPU).
 - Las versiones de `requirements.txt` están fijadas para asegurar reproducibilidad.
