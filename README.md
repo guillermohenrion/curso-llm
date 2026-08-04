@@ -6,8 +6,9 @@ contiene dos bloques independientes:
 1. **Clase 1 - Notebook de fundamentos** (`clase1_llm_practica.ipynb`): tokenización,
    embeddings, visualización y mecanismo de atención. No necesita GPU y corre tanto
    local como en Google Colab.
-2. **Demos locales con Ollama** (`ollama_gemma_example.py`, `rag_simple.py`): chat con
-   el modelo Gemma y un RAG simple 100% local. Requieren tener Ollama instalado.
+2. **Demos locales con Ollama** (`ollama_gemma_example.py`, `RAG/rag_simple.py`): chat con
+   el modelo Gemma y un RAG simple 100% local (en la carpeta `RAG/`). Requieren tener
+   Ollama instalado.
 
 Además hay tres notebooks de verificación con modelos de Hugging Face:
 - `prueba_modelo_huggingface.ipynb` — corre `distilgpt2` y `distilbert` usando la caché
@@ -129,7 +130,11 @@ ollama pull nomic-embed-text  # modelo de embeddings (solo para el RAG)
 Con el venv activado:
 
 ```powershell
-pip install -r requirements-rag.txt
+# Demo de Gemma
+pip install ollama
+
+# Demo de RAG (deps propias en la carpeta RAG/)
+pip install -r RAG\requirements-rag.txt
 ```
 
 ### Paso 3 — Correr las demos
@@ -142,17 +147,17 @@ faltan, activan el venv y ejecutan el ejemplo:
 .\iniciar_gemma_demo.ps1 "¿Qué es un LLM?"
 
 # RAG simple (modo interactivo)
-.\iniciar_rag_demo.ps1
+.\RAG\iniciar_rag_demo.ps1
 
 # RAG con una pregunta puntual
-.\iniciar_rag_demo.ps1 "¿Qué es RAG?"
+.\RAG\iniciar_rag_demo.ps1 "¿Qué es RAG?"
 ```
 
 También podés correr los scripts de Python directamente (con el venv activo y Ollama corriendo):
 
 ```powershell
 python ollama_gemma_example.py "hola mundo"
-python rag_simple.py "¿Qué es una base de datos vectorial?"
+python RAG\rag_simple.py "¿Qué es una base de datos vectorial?"
 ```
 
 ---
@@ -203,11 +208,12 @@ curso-llm/
 ├── prueba_modelo_local_hf.ipynb       # Descarga un modelo de HF a ./models/ y lo corre offline
 ├── prueba_modelo_hf_remoto.ipynb      # Llama modelos de HF via Inference API (sin descargar)
 ├── ollama_gemma_example.py            # Demo de chat con Gemma (Ollama)
-├── rag_simple.py                      # Demo de RAG local (Ollama + ChromaDB)
 ├── iniciar_gemma_demo.ps1             # Lanzador de la demo de Gemma
-├── iniciar_rag_demo.ps1               # Lanzador de la demo de RAG
+├── RAG/                               # Demo de RAG local (Ollama + ChromaDB)
+│   ├── rag_simple.py                  #   script principal del RAG
+│   ├── iniciar_rag_demo.ps1           #   lanzador de la demo de RAG
+│   └── requirements-rag.txt           #   dependencias del RAG
 ├── requirements.txt                   # Dependencias del notebook
-├── requirements-rag.txt               # Dependencias de las demos de Ollama
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
 ├── .env.example                       # Plantilla para el token de HF (copiar a .env)
 └── README.md                          # Este archivo

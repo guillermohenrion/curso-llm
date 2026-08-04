@@ -65,11 +65,12 @@ foreach ($modelo in @("nomic-embed-text", "gemma3")) {
     }
 }
 
-# 3. Activar el entorno virtual
+# 3. Activar el entorno virtual (esta en la carpeta padre del proyecto)
 Write-Paso "Activando entorno virtual..."
-$activate = Join-Path $ScriptDir ".venv\Scripts\Activate.ps1"
+$RootDir = Split-Path -Parent $ScriptDir
+$activate = Join-Path $RootDir ".venv\Scripts\Activate.ps1"
 if (-not (Test-Path $activate)) {
-    Write-Host "No se encontró el venv en .venv. Creá uno con: python -m venv .venv" -ForegroundColor Red
+    Write-Host "No se encontró el venv en ..\.venv. Creá uno con: python -m venv .venv (en la raiz del proyecto)" -ForegroundColor Red
     exit 1
 }
 . $activate
