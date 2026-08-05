@@ -358,6 +358,17 @@ python RAG\pdf\rag_pdf.py --reindex                 # reconstruir indice
 Extrae el texto (`pypdf`), lo parte en chunks, los embebe con `nomic-embed-text` y
 los guarda en un índice persistente (`chroma_pdf/`). El indexado es incremental.
 
+Hay además una variante con **LangChain + LangSmith** (observabilidad/tracing):
+
+```powershell
+pip install -r RAG\pdf\requirements-pdf-langsmith.txt
+copy RAG\pdf\.env.example RAG\pdf\.env    # opcional: completar LANGSMITH_API_KEY
+python RAG\pdf\rag_pdf_langsmith.py "¿De que trata el documento?"
+```
+
+Cada consulta queda registrada en [LangSmith](https://smith.langchain.com) (árbol
+retriever → prompt → LLM, latencias, tokens). Sin token funciona igual, sin trazas.
+
 ---
 
 ## 11. Estructura del repositorio
@@ -393,8 +404,10 @@ curso-llm/
 │   │   ├── requirements-wiki.txt      #     dependencias (solo ollama)
 │   │   └── wiki/                      #     base de conocimiento (.md)
 │   └── pdf/                           #   RAG sobre una carpeta de PDFs
-│       ├── rag_pdf.py                 #     extrae, chunkea, indexa (Chroma) y consulta
-│       ├── requirements-pdf.txt       #     dependencias (pypdf, chromadb, ollama)
+│       ├── rag_pdf.py                 #     version simple (pypdf + chromadb + ollama)
+│       ├── rag_pdf_langsmith.py       #     version LangChain + tracing en LangSmith
+│       ├── requirements-pdf.txt       #     dependencias de la version simple
+│       ├── requirements-pdf-langsmith.txt #  dependencias de la version LangSmith
 │       └── docs/                      #     poné aca tus PDFs (no se versionan)
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF

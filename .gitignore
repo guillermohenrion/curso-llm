@@ -21,4 +21,5 @@ models/
 
 # RAG sobre PDFs: indice persistente y documentos del usuario
 chroma_pdf/
+chroma_pdf_lc/
 RAG/pdf/docs/*.pdf
