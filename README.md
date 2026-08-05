@@ -27,6 +27,7 @@ Y en la carpeta `RAG/` hay varias variantes de RAG, de menor a mayor complejidad
 - `RAG/pinecone/` — RAG simple con **Pinecone** (base vectorial en la nube). Ver [Sección 7](#7-rag-con-pinecone-opcional).
 - `RAG/graph/` — **Graph RAG**: recuperación sobre un grafo de conocimiento. Ver [Sección 8](#8-graph-rag-opcional).
 - `RAG/wiki_llm/` — **Wiki-LLM**: RAG sobre una wiki de markdown (patrón de Karpathy). Ver [Sección 9](#9-wiki-llm-opcional).
+- `RAG/pdf/` — RAG sobre una **carpeta de PDFs** (indexa en ChromaDB y consulta). Ver [Sección 10](#10-rag-sobre-pdfs-opcional).
 
 ## Guía rápida (TL;DR)
 
@@ -337,7 +338,29 @@ no requiere reindexar nada.
 
 ---
 
-## 10. Estructura del repositorio
+## 10. RAG sobre PDFs (opcional)
+
+Indexa una **carpeta de PDFs** en ChromaDB y permite consultarlos, citando archivo
+y página. En `RAG/pdf/`. Detalle en [`RAG/pdf/README.md`](RAG/pdf/README.md).
+
+```powershell
+ollama pull gemma3
+ollama pull nomic-embed-text
+pip install -r RAG\pdf\requirements-pdf.txt
+
+# 1) poné tus PDFs en RAG\pdf\docs\
+# 2) indexá (incremental) y preguntá:
+python RAG\pdf\rag_pdf.py "¿De que trata el documento?"
+python RAG\pdf\rag_pdf.py --docs C:\ruta\a\pdfs     # otra carpeta
+python RAG\pdf\rag_pdf.py --reindex                 # reconstruir indice
+```
+
+Extrae el texto (`pypdf`), lo parte en chunks, los embebe con `nomic-embed-text` y
+los guarda en un índice persistente (`chroma_pdf/`). El indexado es incremental.
+
+---
+
+## 11. Estructura del repositorio
 
 ```
 curso-llm/
@@ -365,10 +388,14 @@ curso-llm/
 │   ├── graph/                         #   Graph RAG (grafo de conocimiento)
 │   │   ├── rag_grafos.py              #     match de entidades + vecindario + LLM
 │   │   └── requirements-graph.txt     #     dependencias (networkx, numpy, ollama)
-│   └── wiki_llm/                      #   Wiki-LLM (RAG sobre markdown, patron Karpathy)
-│       ├── rag_wiki.py                #     lee la wiki, shortlist y consulta al LLM
-│       ├── requirements-wiki.txt      #     dependencias (solo ollama)
-│       └── wiki/                      #     base de conocimiento (.md)
+│   ├── wiki_llm/                      #   Wiki-LLM (RAG sobre markdown, patron Karpathy)
+│   │   ├── rag_wiki.py                #     lee la wiki, shortlist y consulta al LLM
+│   │   ├── requirements-wiki.txt      #     dependencias (solo ollama)
+│   │   └── wiki/                      #     base de conocimiento (.md)
+│   └── pdf/                           #   RAG sobre una carpeta de PDFs
+│       ├── rag_pdf.py                 #     extrae, chunkea, indexa (Chroma) y consulta
+│       ├── requirements-pdf.txt       #     dependencias (pypdf, chromadb, ollama)
+│       └── docs/                      #     poné aca tus PDFs (no se versionan)
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
 ├── .env.example                       # Plantilla para el token de HF (copiar a .env)
@@ -377,7 +404,7 @@ curso-llm/
 
 ---
 
-## 11. Problemas frecuentes
+## 12. Problemas frecuentes
 
 - **`SSLCertVerificationError` al descargar modelos** (redes con proxy corporativo):
   `requirements.txt` ya incluye `pip-system-certs`, que hace que las verificaciones
@@ -400,7 +427,7 @@ curso-llm/
 
 ---
 
-## 12. Notas
+## 13. Notas
 
 - Probado con **Python 3.11** en **Windows** (CPU, sin GPU).
 - Las versiones de `requirements.txt` están fijadas para asegurar reproducibilidad.
