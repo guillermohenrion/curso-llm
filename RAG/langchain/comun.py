@@ -85,7 +85,7 @@ DOCUMENTOS = [
 
 
 def get_llm(temperature: float = 0.0) -> ChatOllama:
-    """Modelo de chat local (Gemma via Ollama)."""
+    """Modelo de chat local (Gemma via Ollama). temperature=0 -> respuestas mas deterministas."""
     return ChatOllama(model=CHAT_MODEL, temperature=temperature)
 
 
@@ -100,10 +100,12 @@ def build_vectorstore() -> Chroma:
     Cada documento se convierte en embedding y se guarda. Al ser en memoria,
     se reconstruye cada vez que corre el script (suficiente para la clase).
     """
+    # DOCUMENTOS (dicts) -> Document de LangChain, el formato que espera Chroma.from_documents
     docs = [
         Document(page_content=d["text"], metadata={"id": d["id"]})
         for d in DOCUMENTOS
     ]
+    # from_documents embebe cada texto (con get_embeddings()) y arma el vector store de una
     return Chroma.from_documents(
         documents=docs,
         embedding=get_embeddings(),
@@ -112,7 +114,7 @@ def build_vectorstore() -> Chroma:
 
 
 def get_retriever(k: int = 2):
-    """Devuelve un retriever que trae los k documentos mas relevantes."""
+    """Devuelve un retriever que trae los k documentos mas relevantes (similitud coseno)."""
     return build_vectorstore().as_retriever(search_kwargs={"k": k})
 
 

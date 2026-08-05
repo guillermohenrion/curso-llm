@@ -31,6 +31,7 @@ from comun import get_llm, get_retriever, leer_pregunta_o_argv
 
 # --- Tool 1: RAG (recuperacion sobre el corpus) ---
 def build_retriever_tool():
+    """Envuelve el retriever como una tool que el agente puede decidir llamar."""
     retriever = get_retriever(k=2)
     return create_retriever_tool(
         retriever,
@@ -88,6 +89,7 @@ Thought:{agent_scratchpad}"""
 
 
 def build_agent() -> AgentExecutor:
+    """Arma el agente ReAct: LLM + tools + prompt, envuelto en un executor que lo corre en loop."""
     llm = get_llm()
     tools = [build_retriever_tool(), calculadora, fecha_hoy]
     agent = create_react_agent(llm, tools, REACT_PROMPT)
@@ -95,8 +97,8 @@ def build_agent() -> AgentExecutor:
         agent=agent,
         tools=tools,
         verbose=True,               # muestra el razonamiento paso a paso
-        handle_parsing_errors=True,
-        max_iterations=6,
+        handle_parsing_errors=True,  # si el LLM no sigue el formato ReAct, reintenta en vez de crashear
+        max_iterations=6,            # limite de vueltas Thought/Action, evita loops infinitos
     )
 
 
@@ -106,7 +108,7 @@ def main() -> None:
     )
     executor = build_agent()
     print(f"\n=== Pregunta: {pregunta} ===\n")
-    salida = executor.invoke({"input": pregunta})
+    salida = executor.invoke({"input": pregunta})  # corre el loop ReAct completo
     print("\n--- Respuesta final ---")
     print(salida["output"])
 

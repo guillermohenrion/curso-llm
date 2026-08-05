@@ -19,7 +19,11 @@ models/
 # Tokens/credenciales locales (ver .env.example para el formato)
 .env
 
+# Config local de editores
+.obsidian/
+
 # RAG sobre PDFs: indice persistente y documentos del usuario
 chroma_pdf/
 chroma_pdf_lc/
+chroma_pdf_semantico/
 RAG/pdf/docs/*.pdf

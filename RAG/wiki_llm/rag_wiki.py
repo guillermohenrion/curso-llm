@@ -116,12 +116,15 @@ def construir_contexto(notas: list[dict]) -> str:
 
 
 def responder(notas: list[dict], pregunta: str, full: bool) -> None:
+    """Elige que notas cargar (todas o shortlist) y le pide al LLM que responda con ellas."""
     seleccionadas = notas if full else shortlist(notas, pregunta)
     modo = "FULL (toda la wiki)" if full else "SELECTIVO (shortlist)"
     print(f"\n=== Pregunta: {pregunta} ===")
     print(f"[modo de carga: {modo}]")
     print(f"[notas cargadas: {', '.join(n['archivo'] for n in seleccionadas)}]\n")
 
+    # Las notas van pegadas al system prompt (no como "documentos recuperados" separados):
+    # asi el LLM las trata como su base de conocimiento, no como resultados de busqueda sueltos.
     contexto = construir_contexto(seleccionadas)
     mensajes = [
         {"role": "system", "content": SYSTEM_PROMPT + "\n\n---\n" + contexto + "\n---"},
@@ -133,8 +136,8 @@ def responder(notas: list[dict], pregunta: str, full: bool) -> None:
 
 def main() -> None:
     argv = sys.argv[1:]
-    full = "--full" in argv
-    argv = [a for a in argv if a != "--full"]
+    full = "--full" in argv  # flag de modo, no una pregunta
+    argv = [a for a in argv if a != "--full"]  # el resto de los argumentos SI es la pregunta
 
     notas = cargar_notas()
     if not notas:

@@ -1,8 +1,9 @@
 ﻿<#
-    Demo de RAG simple para clase.
+    Wiki-LLM (RAG sobre una wiki de markdown) para clase.
     Uso:
-      .\iniciar_rag_demo.ps1                  -> modo interactivo (pregunta y pregunta)
-      .\iniciar_rag_demo.ps1 "que es RAG?"    -> una sola pregunta y listo
+      .\iniciar_wiki_demo.ps1                        -> modo interactivo (modo selectivo)
+      .\iniciar_wiki_demo.ps1 "que es RAG?"          -> una sola pregunta (modo selectivo)
+      .\iniciar_wiki_demo.ps1 --full "resumi todo"   -> concatena TODAS las notas
 #>
 
 param(
@@ -46,39 +47,37 @@ if (-not $ollamaOk) {
         }
     }
     if (-not $ollamaOk) {
-        Write-Host "No se pudo iniciar Ollama. Instalalo desde https://ollama.com o iniciá 'ollama serve' manualmente." -ForegroundColor Red
+        Write-Host "No se pudo iniciar Ollama. Instalalo desde https://ollama.com o inicia 'ollama serve' manualmente." -ForegroundColor Red
         exit 1
     }
 }
 Write-Host "Ollama OK." -ForegroundColor Green
 
-# 2. Verificar que los modelos necesarios estén descargados
-Write-Paso "Verificando modelos (nomic-embed-text, gemma3)..."
+# 2. Verificar que el modelo necesario esté descargado (wiki-llm solo usa el generador, sin embeddings)
+Write-Paso "Verificando modelo (gemma3)..."
 $modelosInstalados = (ollama list) -join "`n"
 
-foreach ($modelo in @("nomic-embed-text", "gemma3")) {
-    if ($modelosInstalados -notmatch [regex]::Escape($modelo)) {
-        Write-Host "Descargando $modelo (puede tardar unos minutos)..." -ForegroundColor Yellow
-        ollama pull $modelo
-    } else {
-        Write-Host "  $modelo ya esta descargado." -ForegroundColor Green
-    }
+if ($modelosInstalados -notmatch [regex]::Escape("gemma3")) {
+    Write-Host "Descargando gemma3 (puede tardar unos minutos)..." -ForegroundColor Yellow
+    ollama pull gemma3
+} else {
+    Write-Host "  gemma3 ya esta descargado." -ForegroundColor Green
 }
 
-# 3. Activar el entorno virtual (esta en la carpeta padre del proyecto)
+# 3. Activar el entorno virtual (esta 2 niveles arriba: RAG/wiki_llm/ -> RAG/ -> raiz)
 Write-Paso "Activando entorno virtual..."
-$RootDir = Split-Path -Parent $ScriptDir
+$RootDir = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $activate = Join-Path $RootDir ".venv\Scripts\Activate.ps1"
 if (-not (Test-Path $activate)) {
-    Write-Host "No se encontró el venv en ..\.venv. Creá uno con: python -m venv .venv (en la raiz del proyecto)" -ForegroundColor Red
+    Write-Host "No se encontró el venv en ..\..\.venv. Creá uno con: python -m venv .venv (en la raiz del proyecto)" -ForegroundColor Red
     exit 1
 }
 . $activate
 
 # 4. Correr la demo
-Write-Paso "Iniciando RAG simple..."
+Write-Paso "Iniciando Wiki-LLM..."
 if ($Pregunta -and $Pregunta.Count -gt 0) {
-    python rag_simple.py @Pregunta
+    python rag_wiki.py @Pregunta
 } else {
-    python rag_simple.py
+    python rag_wiki.py
 }

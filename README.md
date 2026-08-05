@@ -1,7 +1,11 @@
 # Curso LLM - ITBA
 
-Material práctico del curso de **Large Language Models (LLMs)**. Este repositorio
-contiene dos bloques independientes:
+Material práctico del curso de **Large Language Models (LLMs)**. Este README
+explica cómo instalar y correr cada ejemplo; para la teoría detrás de cada
+técnica (tokenización, embeddings, attention, RAG, chunking, etc.) y qué hace
+cada librería, ver [`TEORIA.md`](TEORIA.md).
+
+Este repositorio contiene dos bloques independientes:
 
 1. **Clase 1 - Notebook de fundamentos** (`clase1_llm_practica.ipynb`): tokenización,
    embeddings, visualización y mecanismo de atención. No necesita GPU y corre tanto
@@ -267,6 +271,16 @@ Para el ejemplo 5 (LangSmith) necesitás un token: copiá `RAG\langchain\.env.ex
 a `RAG\langchain\.env` y completá `LANGSMITH_API_KEY`. Sin token el RAG funciona igual,
 pero no registra trazas.
 
+**Lanzadores `.ps1`** (verifican Ollama/modelos, activan el venv y corren el script):
+
+```powershell
+.\RAG\langchain\iniciar_1_basico.ps1 "¿Que es RAG?"
+.\RAG\langchain\iniciar_2_memoria.ps1
+.\RAG\langchain\iniciar_3_tools.ps1 "¿Que es ChromaDB?"
+.\RAG\langchain\iniciar_4_skills.ps1 "Traducir: hola mundo"
+.\RAG\langchain\iniciar_5_langsmith.ps1 "¿Que es RAG?"
+```
+
 ---
 
 ## 7. RAG con Pinecone (opcional)
@@ -297,6 +311,12 @@ python RAG\pinecone\rag_pinecone.py "¿Que es una base de datos vectorial?"
 El script crea el índice solo si no existe (dimensión detectada automáticamente,
 métrica coseno, serverless).
 
+**Lanzador `.ps1`** (corta con un aviso claro si falta el `.env` con `PINECONE_API_KEY`):
+
+```powershell
+.\RAG\pinecone\iniciar_pinecone_demo.ps1 "¿Que es una base de datos vectorial?"
+```
+
 ---
 
 ## 8. Graph RAG (opcional)
@@ -314,6 +334,12 @@ python RAG\graph\rag_grafos.py "¿Que diferencia hay entre Chroma y Pinecone?"
 
 Detecta las entidades relevantes por embeddings, recupera su vecindario (tripletas
 a 1-2 saltos) y le pasa ese subgrafo al LLM como contexto.
+
+**Lanzador `.ps1`**:
+
+```powershell
+.\RAG\graph\iniciar_graph_demo.ps1 "¿Que diferencia hay entre Chroma y Pinecone?"
+```
 
 ---
 
@@ -335,6 +361,12 @@ python RAG\wiki_llm\rag_wiki.py --full "Resumi todo lo que hay sobre RAG"
 
 La base de conocimiento son los `.md` de `RAG/wiki_llm/wiki/`; agregar notas nuevas
 no requiere reindexar nada.
+
+**Lanzador `.ps1`**:
+
+```powershell
+.\RAG\wiki_llm\iniciar_wiki_demo.ps1 "¿Que diferencia hay entre Chroma y Pinecone?"
+```
 
 ---
 
@@ -369,6 +401,26 @@ python RAG\pdf\rag_pdf_langsmith.py "¿De que trata el documento?"
 Cada consulta queda registrada en [LangSmith](https://smith.langchain.com) (árbol
 retriever → prompt → LLM, latencias, tokens). Sin token funciona igual, sin trazas.
 
+Y una variante que cambia el **método de chunking**: en vez de cortar cada N
+caracteres con solapamiento (`rag_pdf.py`), agrupa **oraciones completas** hasta
+un tamaño objetivo, sin cortar nunca una oración al medio:
+
+```powershell
+python RAG\pdf\rag_pdf_semantico.py "¿De que trata el documento?"
+```
+
+Usa su propio índice (`chroma_pdf_semantico/`) para no mezclarse con los otros
+dos. Buen contraste para mostrar en clase: mismo PDF, mismo `TOP_K`, pero
+fragmentos más coherentes (y de tamaño más variable) al no partir oraciones.
+
+**Lanzadores `.ps1`** (avisan si `docs/` está vacía):
+
+```powershell
+.\RAG\pdf\iniciar_pdf_demo.ps1 "¿De que trata el documento?"
+.\RAG\pdf\iniciar_pdf_langsmith_demo.ps1 "¿De que trata el documento?"
+.\RAG\pdf\iniciar_pdf_semantico_demo.ps1 "¿De que trata el documento?"
+```
+
 ---
 
 ## 11. Estructura del repositorio
@@ -388,30 +440,43 @@ curso-llm/
 │   ├── langchain/                     #   RAG con LangChain (versiones incrementales)
 │   │   ├── comun.py                   #     modulo compartido (modelos, corpus, retriever)
 │   │   ├── 1_rag_basico.py            #     RAG minimo (LCEL)
+│   │   ├── iniciar_1_basico.ps1       #     lanzador
 │   │   ├── 2_rag_memoria.py           #     RAG conversacional con memoria avanzada
+│   │   ├── iniciar_2_memoria.ps1      #     lanzador
 │   │   ├── 3_rag_tools.py             #     agente ReAct con tools
+│   │   ├── iniciar_3_tools.ps1        #     lanzador
 │   │   ├── 4_rag_skills.py            #     skills + router
+│   │   ├── iniciar_4_skills.ps1       #     lanzador
 │   │   ├── 5_rag_langsmith.py         #     RAG con tracing en LangSmith
+│   │   ├── iniciar_5_langsmith.ps1    #     lanzador (avisa si falta .env)
 │   │   └── requirements-langchain.txt #     dependencias de LangChain
 │   ├── pinecone/                      #   RAG simple con Pinecone (base vectorial en la nube)
 │   │   ├── rag_pinecone.py            #     script principal (lee token de .env)
+│   │   ├── iniciar_pinecone_demo.ps1  #     lanzador (corta si falta .env)
 │   │   └── requirements-pinecone.txt  #     dependencias de Pinecone
 │   ├── graph/                         #   Graph RAG (grafo de conocimiento)
 │   │   ├── rag_grafos.py              #     match de entidades + vecindario + LLM
+│   │   ├── iniciar_graph_demo.ps1     #     lanzador
 │   │   └── requirements-graph.txt     #     dependencias (networkx, numpy, ollama)
 │   ├── wiki_llm/                      #   Wiki-LLM (RAG sobre markdown, patron Karpathy)
 │   │   ├── rag_wiki.py                #     lee la wiki, shortlist y consulta al LLM
+│   │   ├── iniciar_wiki_demo.ps1      #     lanzador
 │   │   ├── requirements-wiki.txt      #     dependencias (solo ollama)
 │   │   └── wiki/                      #     base de conocimiento (.md)
 │   └── pdf/                           #   RAG sobre una carpeta de PDFs
-│       ├── rag_pdf.py                 #     version simple (pypdf + chromadb + ollama)
+│       ├── rag_pdf.py                 #     version simple, chunking por caracteres+overlap
+│       ├── iniciar_pdf_demo.ps1       #     lanzador (avisa si docs/ esta vacia)
+│       ├── rag_pdf_semantico.py       #     misma version, chunking por oraciones completas
+│       ├── iniciar_pdf_semantico_demo.ps1 #  lanzador
 │       ├── rag_pdf_langsmith.py       #     version LangChain + tracing en LangSmith
-│       ├── requirements-pdf.txt       #     dependencias de la version simple
+│       ├── iniciar_pdf_langsmith_demo.ps1 #  lanzador
+│       ├── requirements-pdf.txt       #     dependencias de las versiones simples
 │       ├── requirements-pdf-langsmith.txt #  dependencias de la version LangSmith
 │       └── docs/                      #     poné aca tus PDFs (no se versionan)
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
 ├── .env.example                       # Plantilla para el token de HF (copiar a .env)
+├── TEORIA.md                          # Teoria detras de cada ejemplo + glosario de librerias
 └── README.md                          # Este archivo
 ```
 
@@ -437,6 +502,12 @@ curso-llm/
 
 - **La primera ejecución es lenta**: se descargan modelos (GPT-2, BERT, DistilBERT) y
   vectores GloVe (~130 MB). A partir de la segunda vez quedan cacheados.
+
+- **`error: Unable to find a compatible Visual Studio installation` al instalar `greenlet`**
+  (dependencia de LangChain/SQLAlchemy): pasa si el venv usa **Python 3.9** — versiones
+  recientes de `greenlet` ya no publican wheel precompilado para 3.9 en Windows, y sin
+  Visual Studio Build Tools no se puede compilar desde código fuente. Solución: recreá el
+  venv con **Python 3.11** (`py -3.11 -m venv .venv`), que sí tiene wheels disponibles.
 
 ---
 

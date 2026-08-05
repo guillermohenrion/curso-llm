@@ -69,6 +69,7 @@ PROMPT = ChatPromptTemplate.from_template(
 
 
 def check_langsmith() -> bool:
+    """Avisa si falta la API key y valida la conexion si esta configurada."""
     if not os.getenv("LANGSMITH_API_KEY"):
         print("[aviso] No hay LANGSMITH_API_KEY: el RAG funciona igual, pero NO se "
               "registran trazas en LangSmith. Configuralo en .env para habilitarlo.\n")
@@ -85,6 +86,7 @@ def check_langsmith() -> bool:
 
 
 def format_docs(docs) -> str:
+    """Concatena los chunks recuperados, cada uno con su cita [archivo p.pagina]."""
     bloques = []
     for d in docs:
         src = os.path.basename(d.metadata.get("source", "?"))
@@ -94,10 +96,11 @@ def format_docs(docs) -> str:
 
 
 def build_vectorstore(reindex: bool = False) -> Chroma:
+    """Abre (o crea) el vector store persistente e indexa los PDFs si esta vacio."""
     embeddings = OllamaEmbeddings(model=EMBED_MODEL)
 
     if reindex and os.path.isdir(PERSIST_DIR):
-        shutil.rmtree(PERSIST_DIR)
+        shutil.rmtree(PERSIST_DIR)  # borra el indice en disco para reconstruirlo desde cero
 
     vs = Chroma(
         collection_name=COLLECTION_NAME,
@@ -113,10 +116,10 @@ def build_vectorstore(reindex: bool = False) -> Chroma:
             print(f"[aviso] No hay PDFs en {DOCS_DIR}. Poné tus archivos ahi.")
             return vs
         print(f"Indexando {len(pdfs)} PDF(s) de {DOCS_DIR}...")
-        docs = PyPDFDirectoryLoader(DOCS_DIR).load()
+        docs = PyPDFDirectoryLoader(DOCS_DIR).load()  # un Document por pagina, con metadata (source, page)
         splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
         chunks = splitter.split_documents(docs)
-        vs.add_documents(chunks)
+        vs.add_documents(chunks)  # embebe cada chunk y lo guarda en Chroma
         print(f"Indexados {len(chunks)} chunks.\n")
     else:
         print(f"Indice existente con {vs._collection.count()} chunks "
@@ -125,6 +128,7 @@ def build_vectorstore(reindex: bool = False) -> Chroma:
 
 
 def build_chain(vs: Chroma):
+    """Arma la cadena LCEL: retriever de Chroma -> prompt con contexto -> LLM -> texto."""
     retriever = vs.as_retriever(search_kwargs={"k": TOP_K})
     llm = ChatOllama(model=CHAT_MODEL, temperature=0.0)
     return (
@@ -136,6 +140,7 @@ def build_chain(vs: Chroma):
 
 
 def consultar(chain, pregunta: str, tracing_on: bool) -> None:
+    """Corre la cadena con metadata para LangSmith (tags/run_name) e imprime el resultado."""
     print(f"\n=== Pregunta: {pregunta} ===\n")
     config = {
         "run_name": "rag_pdf_langsmith",

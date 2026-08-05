@@ -73,14 +73,17 @@ DOCUMENTOS = [
 
 
 def build_index() -> chromadb.Collection:
-    client = chromadb.PersistentClient(path="./chroma_db")
+    """Crea (o recrea) la coleccion de Chroma y la llena con los embeddings de DOCUMENTOS."""
+    client = chromadb.PersistentClient(path="./chroma_db")  # persiste en disco, no solo en memoria
     # Si ya existe de una corrida anterior, la recreamos para que quede limpia.
     if COLLECTION_NAME in [c.name for c in client.list_collections()]:
         client.delete_collection(COLLECTION_NAME)
     collection = client.create_collection(COLLECTION_NAME)
 
     for doc in DOCUMENTOS:
+        # Cada documento se convierte en un vector numerico (embedding) via Ollama...
         embedding = ollama.embeddings(model=EMBED_MODEL, prompt=doc["text"])["embedding"]
+        # ...y se guarda en Chroma junto con su texto original y un id unico.
         collection.add(
             ids=[doc["id"]],
             embeddings=[embedding],
@@ -90,12 +93,14 @@ def build_index() -> chromadb.Collection:
 
 
 def retrieve(collection: chromadb.Collection, pregunta: str, k: int = TOP_K) -> list[str]:
+    """Devuelve los k documentos mas parecidos (por embedding) a la pregunta."""
     query_embedding = ollama.embeddings(model=EMBED_MODEL, prompt=pregunta)["embedding"]
     resultados = collection.query(query_embeddings=[query_embedding], n_results=k)
-    return resultados["documents"][0]
+    return resultados["documents"][0]  # [0] porque query() soporta multiples consultas a la vez
 
 
 def generar_respuesta(pregunta: str, contexto: list[str]) -> str:
+    """Arma un prompt con el contexto recuperado y le pide a Gemma que responda solo con eso."""
     contexto_str = "\n\n".join(f"- {c}" for c in contexto)
     prompt = f"""Respondé la pregunta usando SOLO la informacion del contexto. Si el contexto no alcanza, decilo.
 
@@ -111,6 +116,7 @@ Respuesta:"""
 
 
 def rag(collection: chromadb.Collection, pregunta: str) -> None:
+    """Orquesta el flujo completo: recuperar contexto y generar la respuesta, con logs por consola."""
     print(f"\n=== Pregunta: {pregunta} ===")
     contexto = retrieve(collection, pregunta)
     print("\n--- Documentos recuperados ---")
@@ -123,7 +129,7 @@ def rag(collection: chromadb.Collection, pregunta: str) -> None:
 
 if __name__ == "__main__":
     print("Indexando documentos en ChromaDB...")
-    collection = build_index()
+    collection = build_index()  # se reindexa siempre al arrancar, es rapido con este corpus chico
     print(f"Listo: {collection.count()} documentos indexados.\n")
 
     if len(sys.argv) > 1:

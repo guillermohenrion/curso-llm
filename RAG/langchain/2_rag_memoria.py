@@ -102,9 +102,10 @@ def build_conversational_rag():
 
 
 def preguntar(chain, pregunta: str, session_id: str = "demo") -> str:
+    """Hace una pregunta dentro de una sesion; session_id identifica que historial usar."""
     salida = chain.invoke(
         {"input": pregunta},
-        config={"configurable": {"session_id": session_id}},
+        config={"configurable": {"session_id": session_id}},  # asocia esta llamada a la sesion
     )
     return salida["answer"]
 

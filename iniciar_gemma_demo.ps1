@@ -1,4 +1,4 @@
-<#
+﻿<#
     Demo minima de Ollama + Gemma para clase.
     Uso:
       .\iniciar_gemma_demo.ps1                  -> pregunta por defecto "hola mundo"

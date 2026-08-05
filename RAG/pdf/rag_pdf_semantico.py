@@ -1,31 +1,43 @@
 """
-RAG sobre una CARPETA DE PDFs (Ollama + ChromaDB persistente).
+RAG sobre una CARPETA DE PDFs, con CHUNKING POR ORACIONES (Ollama + ChromaDB persistente).
 
-Lee todos los PDFs de una carpeta, extrae el texto, lo parte en chunks, los
-embebe (nomic-embed-text) y los indexa en una base vectorial local (ChromaDB
-persistente en disco). Despues se pueden hacer preguntas: recupera los chunks
-mas relevantes y genera la respuesta con Gemma, citando de que archivo/pagina salio.
+Es el mismo flujo que rag_pdf.py (extraer texto -> chunkear -> embeber -> indexar ->
+recuperar -> generar), pero cambia COMO se arman los chunks:
 
-El indexado es INCREMENTAL: si un PDF ya fue indexado, se saltea. Con --reindex
-se borra el indice y se reconstruye desde cero.
+    rag_pdf.py (chunk_text):
+        Corta el texto cada `size` caracteres, con `overlap` de solapamiento.
+        Simple y rapido, pero puede partir una palabra u oracion justo al medio
+        (ej: "...la base de datos vect" | "orial almacena embeddings...").
+
+    rag_pdf_semantico.py (chunk_por_oraciones, este archivo):
+        Primero separa el texto en oraciones, y despues va agrupando oraciones
+        COMPLETAS hasta acercarse a un tamano objetivo, sin cortar nunca una
+        oracion al medio. Cada chunk es una unidad de sentido mas coherente,
+        lo que suele mejorar la calidad de los embeddings y de las citas.
+
+    Trade-off: el tamano de cada chunk es mas variable (una oracion muy larga
+    puede hacer que un chunk se pase del objetivo), y el splitter de oraciones
+    es una heuristica simple (no un modelo de NLP), asi que en casos raros
+    (abreviaturas, numeros con puntos) puede cortar donde no deberia.
+
+Comparte la carpeta docs/ con rag_pdf.py (poné ahi tus PDFs), pero usa su propio
+indice persistente (chroma_pdf_semantico/) para no mezclarse con el otro ejemplo.
 
 Requisitos:
     - Ollama corriendo con:  ollama pull gemma3 ; ollama pull nomic-embed-text
-    - pip install -r requirements-pdf.txt
+    - pip install -r requirements-pdf.txt   (mismas dependencias que rag_pdf.py)
 
 Uso:
-    # 1) Poné tus PDFs en la carpeta docs/ (o pasá otra con --docs)
-    # 2) Indexar + preguntar:
-    python rag_pdf.py "¿De que trata el documento X?"
-    python rag_pdf.py                         # interactivo
-    python rag_pdf.py --docs C:\ruta\a\pdfs   # otra carpeta
-    python rag_pdf.py --reindex "..."         # reconstruye el indice
+    python rag_pdf_semantico.py "¿De que trata el documento X?"
+    python rag_pdf_semantico.py                         # interactivo
+    python rag_pdf_semantico.py --docs C:\\ruta\\a\\pdfs   # otra carpeta
+    python rag_pdf_semantico.py --reindex "..."          # reconstruye el indice
 """
 from __future__ import annotations
 
 import os
+import re
 import sys
-import shutil
 
 import chromadb
 import ollama
@@ -35,14 +47,20 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 BASE_DIR = os.path.dirname(__file__)
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
-PERSIST_DIR = os.path.join(BASE_DIR, "chroma_pdf")
-COLLECTION_NAME = "pdf_docs"
+PERSIST_DIR = os.path.join(BASE_DIR, "chroma_pdf_semantico")
+COLLECTION_NAME = "pdf_docs_semantico"
 
 EMBED_MODEL = "nomic-embed-text"
 CHAT_MODEL = "gemma3"
 TOP_K = 4
-CHUNK_SIZE = 800      # caracteres por chunk
-CHUNK_OVERLAP = 150   # solapamiento entre chunks
+CHUNK_TARGET_SIZE = 800   # caracteres "objetivo" por chunk (igual que rag_pdf.py, para comparar)
+CHUNK_MAX_SIZE = 1200     # limite duro: si una oracion sola ya lo supera, queda como chunk propio
+
+# Separador de oraciones simple: corta despues de . ! ? seguido de espacio y mayuscula/fin.
+# Es una heuristica (no un modelo de NLP), asi que abreviaturas como "Dr." o "pag. 5"
+# ocasionalmente van a generar un corte de oracion donde no corresponde. Para el proposito
+# de la demo (comparar contra el chunking por caracteres) alcanza y sobra.
+_PATRON_ORACION = re.compile(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ0-9])")
 
 
 def embed(texto: str) -> list[float]:
@@ -50,29 +68,65 @@ def embed(texto: str) -> list[float]:
     return ollama.embeddings(model=EMBED_MODEL, prompt=texto)["embedding"]
 
 
-def chunk_text(texto: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
-    """Parte un texto en fragmentos de `size` caracteres, con `overlap` de solapamiento
-    entre chunks consecutivos (para no cortar una idea justo en el borde de un chunk)."""
-    texto = " ".join(texto.split())  # normaliza espacios/saltos
+def separar_oraciones(texto: str) -> list[str]:
+    """Parte un texto en oraciones (heuristica simple por puntuacion + mayuscula siguiente)."""
+    texto = " ".join(texto.split())  # normaliza espacios/saltos, igual que rag_pdf.py
     if not texto:
         return []
-    chunks = []
-    inicio = 0
-    while inicio < len(texto):
-        fin = inicio + size
-        chunks.append(texto[inicio:fin])
-        inicio += size - overlap  # avanza menos que "size", asi el final de un chunk se repite al inicio del siguiente
+    return [o.strip() for o in _PATRON_ORACION.split(texto) if o.strip()]
+
+
+def chunk_por_oraciones(
+    texto: str, target_size: int = CHUNK_TARGET_SIZE, max_size: int = CHUNK_MAX_SIZE
+) -> list[str]:
+    """Agrupa oraciones completas en chunks, sin cortar ninguna al medio.
+
+    Va sumando oraciones a un chunk actual hasta que agregar la proxima lo haria
+    pasar de `target_size`; ahi cierra el chunk y arranca uno nuevo. Si una sola
+    oracion ya es mas larga que `max_size` (caso raro), queda como chunk propio
+    en vez de forzar un corte a mitad de oracion.
+    """
+    oraciones = separar_oraciones(texto)
+    if not oraciones:
+        return []
+
+    chunks: list[str] = []
+    actual: list[str] = []
+    largo_actual = 0
+
+    for oracion in oraciones:
+        largo_oracion = len(oracion) + 1  # +1 por el espacio que la va a separar de la anterior
+
+        if largo_actual + largo_oracion > target_size and actual:
+            # Cerramos el chunk actual (ya tiene contenido) antes de agregar esta oracion.
+            chunks.append(" ".join(actual))
+            actual = []
+            largo_actual = 0
+
+        actual.append(oracion)
+        largo_actual += largo_oracion
+
+        # Si una sola oracion ya se paso del maximo, la dejamos sola en su chunk
+        # en vez de romperla (preferimos un chunk grande a uno que corte mal).
+        if largo_actual > max_size:
+            chunks.append(" ".join(actual))
+            actual = []
+            largo_actual = 0
+
+    if actual:
+        chunks.append(" ".join(actual))
+
     return chunks
 
 
 def extraer_chunks_pdf(ruta: str) -> list[dict]:
-    """Extrae el texto de un PDF y devuelve una lista de chunks con metadata."""
+    """Extrae el texto de un PDF y devuelve una lista de chunks (por oraciones) con metadata."""
     reader = PdfReader(ruta)
     nombre = os.path.basename(ruta)
     items = []
     for n_pagina, page in enumerate(reader.pages, start=1):
         texto = page.extract_text() or ""
-        for i, ch in enumerate(chunk_text(texto)):
+        for i, ch in enumerate(chunk_por_oraciones(texto)):
             items.append({
                 "id": f"{nombre}::p{n_pagina}::c{i}",
                 "text": ch,
@@ -83,12 +137,12 @@ def extraer_chunks_pdf(ruta: str) -> list[dict]:
 
 def get_collection(reindex: bool = False):
     """Abre (o crea) la coleccion persistente de Chroma. Con reindex=True la borra antes."""
-    client = chromadb.PersistentClient(path=PERSIST_DIR)  # persiste en disco entre corridas
+    client = chromadb.PersistentClient(path=PERSIST_DIR)
     if reindex:
         try:
             client.delete_collection(COLLECTION_NAME)
         except Exception:
-            pass  # si no existia todavia, no pasa nada
+            pass
     return client.get_or_create_collection(COLLECTION_NAME)
 
 
@@ -192,7 +246,7 @@ def main() -> None:
     collection = get_collection(reindex=reindex)
 
     print(f"Carpeta de PDFs: {docs_dir}")
-    print("Indexando PDFs (incremental)...")
+    print("Indexando PDFs (chunking por oraciones, incremental)...")
     indexar(collection, docs_dir)
 
     if collection.count() == 0:

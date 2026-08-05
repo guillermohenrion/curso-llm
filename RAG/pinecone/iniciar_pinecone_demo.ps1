@@ -1,8 +1,8 @@
 ﻿<#
-    Demo de RAG simple para clase.
+    RAG con Pinecone (base vectorial en la nube) para clase.
     Uso:
-      .\iniciar_rag_demo.ps1                  -> modo interactivo (pregunta y pregunta)
-      .\iniciar_rag_demo.ps1 "que es RAG?"    -> una sola pregunta y listo
+      .\iniciar_pinecone_demo.ps1                  -> modo interactivo
+      .\iniciar_pinecone_demo.ps1 "que es RAG?"    -> una sola pregunta y listo
 #>
 
 param(
@@ -46,7 +46,7 @@ if (-not $ollamaOk) {
         }
     }
     if (-not $ollamaOk) {
-        Write-Host "No se pudo iniciar Ollama. Instalalo desde https://ollama.com o iniciá 'ollama serve' manualmente." -ForegroundColor Red
+        Write-Host "No se pudo iniciar Ollama. Instalalo desde https://ollama.com o inicia 'ollama serve' manualmente." -ForegroundColor Red
         exit 1
     }
 }
@@ -65,20 +65,30 @@ foreach ($modelo in @("nomic-embed-text", "gemma3")) {
     }
 }
 
-# 3. Activar el entorno virtual (esta en la carpeta padre del proyecto)
+# 2b. Pinecone SI necesita API key: si falta .env, avisamos y cortamos.
+if (-not (Test-Path ".env")) {
+    Write-Host ""
+    Write-Host "ERROR: no se encontró .env en esta carpeta (obligatorio para Pinecone)." -ForegroundColor Red
+    Write-Host "  1. Creá una cuenta gratis en https://www.pinecone.io y generá una API key." -ForegroundColor Red
+    Write-Host "  2. copy .env.example .env" -ForegroundColor Red
+    Write-Host "  3. Completá PINECONE_API_KEY en el .env" -ForegroundColor Red
+    exit 1
+}
+
+# 3. Activar el entorno virtual (esta 2 niveles arriba: RAG/pinecone/ -> RAG/ -> raiz)
 Write-Paso "Activando entorno virtual..."
-$RootDir = Split-Path -Parent $ScriptDir
+$RootDir = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $activate = Join-Path $RootDir ".venv\Scripts\Activate.ps1"
 if (-not (Test-Path $activate)) {
-    Write-Host "No se encontró el venv en ..\.venv. Creá uno con: python -m venv .venv (en la raiz del proyecto)" -ForegroundColor Red
+    Write-Host "No se encontró el venv en ..\..\.venv. Creá uno con: python -m venv .venv (en la raiz del proyecto)" -ForegroundColor Red
     exit 1
 }
 . $activate
 
 # 4. Correr la demo
-Write-Paso "Iniciando RAG simple..."
+Write-Paso "Iniciando RAG con Pinecone..."
 if ($Pregunta -and $Pregunta.Count -gt 0) {
-    python rag_simple.py @Pregunta
+    python rag_pinecone.py @Pregunta
 } else {
-    python rag_simple.py
+    python rag_pinecone.py
 }

@@ -41,17 +41,17 @@ def build_chain():
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
         | PROMPT
         | llm
-        | StrOutputParser()
+        | StrOutputParser()  # extrae el texto plano de la respuesta del LLM
     )
     return chain
 
 
 def main() -> None:
-    pregunta = leer_pregunta_o_argv("¿Que es RAG y para que sirve?")
+    pregunta = leer_pregunta_o_argv("¿Que es Retrieval-Augmented Generation?")
     chain = build_chain()
 
     print(f"\n=== Pregunta: {pregunta} ===\n")
-    respuesta = chain.invoke(pregunta)
+    respuesta = chain.invoke(pregunta)  # corre toda la cadena de punta a punta
     print(respuesta)
 
 

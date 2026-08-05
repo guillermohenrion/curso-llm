@@ -66,19 +66,22 @@ TRIPLETAS = [
 
 
 def build_graph() -> nx.MultiDiGraph:
-    g = nx.MultiDiGraph()
+    """Arma el grafo dirigido a partir de las tripletas (sujeto, relacion, objeto)."""
+    g = nx.MultiDiGraph()  # dirigido y admite mas de una arista entre el mismo par de nodos
     for s, r, o in TRIPLETAS:
-        g.add_edge(s, o, relacion=r)
+        g.add_edge(s, o, relacion=r)  # el nombre de la relacion queda como atributo de la arista
     return g
 
 
 def embed(texto: str) -> np.ndarray:
+    """Devuelve el embedding de un texto (nombre de nodo o pregunta) como array de numpy."""
     v = ollama.embeddings(model=EMBED_MODEL, prompt=texto)["embedding"]
     return np.array(v, dtype=float)
 
 
 def _cos(a: np.ndarray, b: np.ndarray) -> float:
-    return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+    """Similitud coseno entre dos vectores (1.0 = identicos, 0.0 = sin relacion)."""
+    return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))  # +1e-9 evita division por cero
 
 
 def matchear_entidades(g: nx.MultiDiGraph, pregunta: str) -> list[str]:
@@ -94,12 +97,14 @@ def matchear_entidades(g: nx.MultiDiGraph, pregunta: str) -> list[str]:
 
 def subgrafo_contexto(g: nx.MultiDiGraph, entidades: list[str]) -> list[str]:
     """Recupera las tripletas del vecindario (SALTOS) de las entidades dadas."""
-    ug = g.to_undirected()
+    ug = g.to_undirected()  # la cercania nos interesa sin importar la direccion de la relacion
     cercanos: set[str] = set()
     for e in entidades:
         if e in ug:
+            # BFS hasta profundidad SALTOS: todos los nodos alcanzables en esa cantidad de saltos
             cercanos |= set(nx.single_source_shortest_path_length(ug, e, cutoff=SALTOS).keys())
 
+    # Nos quedamos con las relaciones (aristas) que tocan al menos un nodo cercano.
     hechos: list[str] = []
     for s, o, data in g.edges(data=True):
         if s in cercanos or o in cercanos:
@@ -108,6 +113,7 @@ def subgrafo_contexto(g: nx.MultiDiGraph, entidades: list[str]) -> list[str]:
 
 
 def generar_respuesta(pregunta: str, hechos: list[str]) -> str:
+    """Serializa el subgrafo como texto y le pide al LLM que responda solo con esos hechos."""
     contexto = "\n".join(f"- {h}" for h in hechos)
     prompt = f"""Sos un asistente que responde usando SOLO los hechos del grafo de
 conocimiento (relaciones sujeto -> relacion -> objeto). Si no alcanzan, decilo.
@@ -123,6 +129,7 @@ Respuesta:"""
 
 
 def rag(g: nx.MultiDiGraph, pregunta: str) -> None:
+    """Orquesta el flujo completo: detectar entidades -> recuperar subgrafo -> generar respuesta."""
     print(f"\n=== Pregunta: {pregunta} ===")
     entidades = matchear_entidades(g, pregunta)
     print(f"\n--- Entidades detectadas: {', '.join(entidades)}")

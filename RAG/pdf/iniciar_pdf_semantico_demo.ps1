@@ -1,8 +1,9 @@
 ﻿<#
-    Demo de RAG simple para clase.
+    RAG sobre una carpeta de PDFs, con chunking por oraciones, para clase.
     Uso:
-      .\iniciar_rag_demo.ps1                  -> modo interactivo (pregunta y pregunta)
-      .\iniciar_rag_demo.ps1 "que es RAG?"    -> una sola pregunta y listo
+      .\iniciar_pdf_semantico_demo.ps1                        -> modo interactivo
+      .\iniciar_pdf_semantico_demo.ps1 "de que tratan?"       -> una sola pregunta
+      .\iniciar_pdf_semantico_demo.ps1 --reindex "..."        -> reconstruye el indice
 #>
 
 param(
@@ -46,7 +47,7 @@ if (-not $ollamaOk) {
         }
     }
     if (-not $ollamaOk) {
-        Write-Host "No se pudo iniciar Ollama. Instalalo desde https://ollama.com o iniciá 'ollama serve' manualmente." -ForegroundColor Red
+        Write-Host "No se pudo iniciar Ollama. Instalalo desde https://ollama.com o inicia 'ollama serve' manualmente." -ForegroundColor Red
         exit 1
     }
 }
@@ -65,20 +66,28 @@ foreach ($modelo in @("nomic-embed-text", "gemma3")) {
     }
 }
 
-# 3. Activar el entorno virtual (esta en la carpeta padre del proyecto)
+# 2b. Aviso si la carpeta docs/ esta vacia (no hay nada que indexar)
+$docsDir = Join-Path $ScriptDir "docs"
+$pdfs = Get-ChildItem -Path $docsDir -Filter "*.pdf" -ErrorAction SilentlyContinue
+if (-not $pdfs -or $pdfs.Count -eq 0) {
+    Write-Host ""
+    Write-Host "Aviso: no hay PDFs en .\docs\. Copiá tus PDFs ahí (o usá --docs C:\otra\carpeta)." -ForegroundColor Yellow
+}
+
+# 3. Activar el entorno virtual (esta 2 niveles arriba: RAG/pdf/ -> RAG/ -> raiz)
 Write-Paso "Activando entorno virtual..."
-$RootDir = Split-Path -Parent $ScriptDir
+$RootDir = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $activate = Join-Path $RootDir ".venv\Scripts\Activate.ps1"
 if (-not (Test-Path $activate)) {
-    Write-Host "No se encontró el venv en ..\.venv. Creá uno con: python -m venv .venv (en la raiz del proyecto)" -ForegroundColor Red
+    Write-Host "No se encontró el venv en ..\..\.venv. Creá uno con: python -m venv .venv (en la raiz del proyecto)" -ForegroundColor Red
     exit 1
 }
 . $activate
 
 # 4. Correr la demo
-Write-Paso "Iniciando RAG simple..."
+Write-Paso "Iniciando RAG sobre PDFs (chunking por oraciones)..."
 if ($Pregunta -and $Pregunta.Count -gt 0) {
-    python rag_simple.py @Pregunta
+    python rag_pdf_semantico.py @Pregunta
 } else {
-    python rag_simple.py
+    python rag_pdf_semantico.py
 }

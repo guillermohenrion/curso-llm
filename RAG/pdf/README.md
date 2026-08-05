@@ -44,6 +44,26 @@ en lenguaje natural. Las respuestas citan el archivo y la página de origen.
 4. **Consulta**: la pregunta se embebe, se recuperan los `top_k` chunks más
    similares y `gemma3` genera la respuesta citando las fuentes.
 
+## Variante con chunking por oraciones
+
+`rag_pdf_semantico.py` hace exactamente lo mismo, pero cambia el paso 2
+(**Chunking**): en vez de cortar cada ~800 caracteres con solapamiento fijo,
+primero separa el texto en oraciones y después va agrupando oraciones
+**completas** hasta acercarse al tamaño objetivo — nunca corta una oración al
+medio. El tamaño de cada chunk queda un poco más variable, pero cada uno es una
+unidad de sentido más coherente (mejor para citar y para embeber). Comparte la
+carpeta `docs/` pero usa su propio índice (`chroma_pdf_semantico/`).
+
+```powershell
+python rag_pdf_semantico.py "¿De que trata el documento?"
+python rag_pdf_semantico.py --reindex "..."   # reconstruir indice
+```
+
+El separador de oraciones es una heurística simple (puntuación + mayúscula
+siguiente), no un modelo de NLP — en casos raros (abreviaturas, "pág. 5") puede
+cortar donde no corresponde, pero alcanza para comparar el enfoque contra el
+chunking por caracteres de `rag_pdf.py`.
+
 ## Variante con LangChain + LangSmith (observabilidad)
 
 `rag_pdf_langsmith.py` hace lo mismo pero construido con **LangChain** y con
@@ -72,5 +92,5 @@ Sin `LANGSMITH_API_KEY` el RAG funciona igual, solo que no registra trazas.
   con `--reindex`.)
 - **PDFs escaneados** (imágenes sin texto) no tienen texto extraíble; requerirían
   OCR (no incluido en este ejemplo).
-- La carpeta `chroma_pdf/` (índice) y los `docs/*.pdf` **no se suben al repo**
-  (están en `.gitignore`).
+- Las carpetas de índice (`chroma_pdf/`, `chroma_pdf_lc/`, `chroma_pdf_semantico/`)
+  y los `docs/*.pdf` **no se suben al repo** (están en `.gitignore`).

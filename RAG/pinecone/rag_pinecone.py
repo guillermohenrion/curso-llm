@@ -142,6 +142,7 @@ def recuperar(index, pregunta: str, k: int = TOP_K) -> list[str]:
 
 
 def generar_respuesta(pregunta: str, contexto: list[str]) -> str:
+    """Arma el prompt con el contexto recuperado y le pide a Gemma que responda solo con eso."""
     contexto_str = "\n\n".join(f"- {c}" for c in contexto)
     prompt = f"""Respondé la pregunta usando SOLO la informacion del contexto.
 Si el contexto no alcanza, decilo.
@@ -157,6 +158,7 @@ Respuesta:"""
 
 
 def rag(index, pregunta: str) -> None:
+    """Orquesta el flujo completo (recuperar + generar) e imprime los pasos por consola."""
     print(f"\n=== Pregunta: {pregunta} ===")
     contexto = recuperar(index, pregunta)
     print("\n--- Documentos recuperados ---")
@@ -172,18 +174,21 @@ def main() -> None:
         print("Copiá .env.example a .env y completá tu API key de Pinecone.")
         sys.exit(1)
 
-    pc = Pinecone(api_key=PINECONE_API_KEY)
+    pc = Pinecone(api_key=PINECONE_API_KEY)  # cliente autenticado contra la cuenta de Pinecone
 
-    # Detectamos la dimension del embedding a partir de un texto de prueba.
+    # Pinecone necesita saber la dimension del vector al crear el indice; la
+    # detectamos embebiendo un texto cualquiera en vez de hardcodearla (nomic-embed-text -> 768).
     dim = len(embed("dimension check"))
     index = get_index(pc, dim)
 
     print("Indexando documentos en Pinecone...")
-    indexar(index)
+    indexar(index)  # se reindexa siempre al arrancar (upsert = crea o actualiza, no duplica)
 
     if len(sys.argv) > 1:
+        # Uso: python rag_pinecone.py "¿pregunta libre?"
         rag(index, " ".join(sys.argv[1:]))
     else:
+        # Modo interactivo para probar en clase con preguntas de los alumnos.
         print("Escribí una pregunta (o 'salir' para terminar):")
         while True:
             try:

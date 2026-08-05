@@ -75,6 +75,7 @@ def check_langsmith() -> bool:
 
 
 def build_chain():
+    """Misma cadena LCEL que el RAG basico (Seccion 1); el tracing se agrega solo via env vars."""
     retriever = get_retriever(k=2)
     llm = get_llm()
     return (

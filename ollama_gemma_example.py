@@ -11,12 +11,13 @@ import sys
 
 import ollama
 
-sys.stdout.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")  # evita errores al imprimir tildes/emojis en la consola de Windows
 
 MODEL = "gemma3"  # cambia el tag segun lo que tengas descargado (ej: gemma3:1b, gemma2:9b)
 
 
 def chat_simple(prompt: str) -> str:
+    """Manda un mensaje a Ollama y devuelve la respuesta completa de una sola vez."""
     response = ollama.chat(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
@@ -25,17 +26,19 @@ def chat_simple(prompt: str) -> str:
 
 
 def chat_streaming(prompt: str) -> None:
+    """Igual que chat_simple, pero imprime la respuesta a medida que llega (token a token)."""
     stream = ollama.chat(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
-        stream=True,
+        stream=True,  # el modelo devuelve un iterador de pedacitos en vez de un string entero
     )
     for chunk in stream:
-        print(chunk["message"]["content"], end="", flush=True)
+        print(chunk["message"]["content"], end="", flush=True)  # sin salto de linea entre chunks
     print()
 
 
 if __name__ == "__main__":
+    # Uso: python ollama_gemma_example.py "tu pregunta"  (o sin argumentos -> "hola mundo")
     pregunta = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "hola mundo"
 
     print(f"--- Respuesta simple ({pregunta!r}) ---")

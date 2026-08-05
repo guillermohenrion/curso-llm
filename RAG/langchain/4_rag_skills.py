@@ -103,6 +103,7 @@ def _calcular(entrada: str) -> str:
 # Registro de skills
 # ---------------------------------------------------------------------------
 def build_skills() -> dict[str, Skill]:
+    """Arma el catalogo de skills disponibles: nombre -> Skill (con su descripcion y su cadena)."""
     return {
         "rag": Skill(
             "rag",
@@ -132,6 +133,7 @@ def build_skills() -> dict[str, Skill]:
 # Router: elige la skill adecuada con el LLM
 # ---------------------------------------------------------------------------
 def build_router(skills: dict[str, Skill]):
+    """Devuelve una funcion que, dado un texto de entrada, elige que skill deberia atenderlo."""
     catalogo = "\n".join(f"- {s.nombre}: {s.descripcion}" for s in skills.values())
     llm = get_llm()
     prompt = ChatPromptTemplate.from_template(
