@@ -1,0 +1,13 @@
+# Dependencias para la orquestacion de agentes con LangGraph (multiagente_langgraph.py).
+#
+# Requiere ademas:
+#   - Ollama con el modelo de chat:  ollama pull gemma3
+#
+# Instalar con:  pip install -r requirements-orquestacion.txt
+#
+# IMPORTANTE: fijamos langgraph <0.3 a proposito. LangGraph 0.3+ (y 1.x) exige
+# langchain-core 1.x, que rompe langchain 0.3.x (el resto del curso). No subir el pin.
+langgraph>=0.2.50,<0.3
+langchain-core>=0.3,<0.4
+langchain-ollama>=0.2
+ollama>=0.4.0

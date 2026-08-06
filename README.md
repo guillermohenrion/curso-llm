@@ -34,6 +34,9 @@ Y en la carpeta `RAG/` hay varias variantes de RAG, de menor a mayor complejidad
 - `RAG/pdf/` — RAG sobre una **carpeta de PDFs** (indexa en ChromaDB y consulta). Ver [Sección 10](#10-rag-sobre-pdfs-opcional).
 - `RAG/mcp_jira/` — RAG + **MCP de Jira**: agente que combina el RAG con acceso de **solo lectura** a Jira. Ver [Sección 11](#11-rag--mcp-de-jira-opcional).
 
+Y por fuera del RAG, hay un ejemplo de **orquestacion de agentes**:
+- `orquestacion/` — varios agentes especializados coordinados por un supervisor, con **LangGraph**. Ver [Sección 12](#12-orquestación-de-agentes-con-langgraph-opcional).
+
 ## Guía rápida (TL;DR)
 
 ```powershell
@@ -453,7 +456,35 @@ modificar ni insertar nada en Jira.
 
 ---
 
-## 12. Estructura del repositorio
+## 12. Orquestación de agentes con LangGraph (opcional)
+
+En lugar de un único agente que hace todo, hay varios agentes especializados y
+un **supervisor** que decide, según la pregunta, a quién derivarla. Se modela
+con **LangGraph** como un grafo de estados. En `orquestacion/`. Detalle en
+[`orquestacion/README.md`](orquestacion/README.md).
+
+```powershell
+ollama pull gemma3
+pip install -r orquestacion\requirements-orquestacion.txt
+
+python orquestacion\multiagente_langgraph.py "Cuanto es 12 * (3 + 4)?"        # -> matematico
+python orquestacion\multiagente_langgraph.py "Traducir al ingles: hola mundo" # -> traductor
+python orquestacion\multiagente_langgraph.py "Que es una base de datos vectorial?" # -> explicador
+```
+
+El supervisor clasifica la pregunta y una arista condicional la deriva al agente
+correspondiente (`matematico` / `traductor` / `explicador`). El agente matemático
+usa además una mini-herramienta propia (eval aritmético seguro).
+
+**Lanzador `.ps1`**:
+
+```powershell
+.\orquestacion\iniciar_multiagente_demo.ps1 "Cuanto es 12 * 8?"
+```
+
+---
+
+## 13. Estructura del repositorio
 
 ```
 curso-llm/
@@ -508,6 +539,11 @@ curso-llm/
 │       ├── .env.example               #     plantilla de credenciales de Jira
 │       ├── README.md                  #     detalle del ejemplo
 │       └── requirements-mcp-jira.txt  #     dependencias (langchain-mcp-adapters, etc.)
+├── orquestacion/                      # Orquestacion de agentes (no RAG)
+│   ├── multiagente_langgraph.py       #   supervisor + agentes especializados (LangGraph)
+│   ├── iniciar_multiagente_demo.ps1   #   lanzador
+│   ├── requirements-orquestacion.txt  #   dependencias (langgraph, etc.)
+│   └── README.md                      #   detalle del ejemplo
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
 ├── .env.example                       # Plantilla para el token de HF (copiar a .env)
@@ -517,7 +553,7 @@ curso-llm/
 
 ---
 
-## 13. Problemas frecuentes
+## 14. Problemas frecuentes
 
 - **`SSLCertVerificationError` al descargar modelos** (redes con proxy corporativo):
   `requirements.txt` ya incluye `pip-system-certs`, que hace que las verificaciones
@@ -546,7 +582,7 @@ curso-llm/
 
 ---
 
-## 14. Notas
+## 15. Notas
 
 - Probado con **Python 3.11** en **Windows** (CPU, sin GPU).
 - Las versiones de `requirements.txt` están fijadas para asegurar reproducibilidad.
