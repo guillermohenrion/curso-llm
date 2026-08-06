@@ -506,7 +506,8 @@ curso-llm/
 │   │   ├── iniciar_2_memoria.ps1      #     lanzador
 │   │   ├── 3_rag_tools.py             #     agente ReAct con tools
 │   │   ├── iniciar_3_tools.ps1        #     lanzador
-│   │   ├── 4_rag_skills.py            #     skills + router
+│   │   ├── 4_rag_skills.py            #     skills desde .md (carga a demanda) + router
+│   │   ├── skills/                    #       una skill por archivo .md (header + cuerpo)
 │   │   ├── iniciar_4_skills.ps1       #     lanzador
 │   │   ├── 5_rag_langsmith.py         #     RAG con tracing en LangSmith
 │   │   ├── iniciar_5_langsmith.ps1    #     lanzador (avisa si falta .env)

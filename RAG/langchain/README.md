@@ -9,7 +9,7 @@ capacidades paso a paso. Todos comparten el mismo modelo local y el mismo corpus
 | 1 | `1_rag_basico.py`  | RAG mínimo: recuperar + generar (cadena LCEL). |
 | 2 | `2_rag_memoria.py` | Conversación con **memoria avanzada**: retriever consciente del historial + ventana de mensajes con `trim_messages`. |
 | 3 | `3_rag_tools.py`   | **Agente** ReAct con varias **tools**: RAG + calculadora + fecha. |
-| 4 | `4_rag_skills.py`  | **Skills** de alto nivel + **router** que clasifica la intención y despacha. |
+| 4 | `4_rag_skills.py`  | **Skills** definidas en archivos `.md` (carpeta `skills/`) y **cargadas a demanda**, con un **router** que clasifica la intención y despacha. |
 | 5 | `5_rag_langsmith.py` | **Observabilidad**: envía las trazas de cada ejecución a **LangSmith**. |
 
 ## Requisitos
@@ -74,6 +74,36 @@ para ver el árbol de pasos (retriever → prompt → LLM), latencias y tokens.
 4. **Skills** — en vez de un bucle de razonamiento libre, un **router** clasifica la
    intención y despacha a una capacidad especializada. Más controlable y predecible
    que un agente abierto.
+
+### Cómo están hechas las skills (ejemplo 4)
+
+Siguiendo el patrón de *Agent Skills*, cada skill vive en su **propio archivo
+markdown** dentro de `skills/`, con un **header (frontmatter)** que declara su
+capacidad y un cuerpo con las instrucciones:
+
+```markdown
+---
+name: traducir
+description: Traducir al ingles un texto que provee el usuario.
+---
+Sos un traductor. Traduci al ingles el texto del usuario. Devolvé SOLO la traduccion.
+```
+
+Lo importante es la **carga a demanda** (*progressive disclosure*):
+
+- El **router** lee SOLO los headers (`name` + `description`) de cada skill para
+  decidir cuál usar. Es barato y no mete el prompt entero de todas las skills en
+  el contexto.
+- Recién cuando se elige una skill se carga su **cuerpo** completo y se ejecuta.
+
+El header admite campos opcionales que cambian cómo se ejecuta la skill:
+
+- `retrieval: true` → la skill inyecta contexto de la base vectorial (RAG).
+- `handler: <nombre>` → la resuelve una **función Python** registrada (no el LLM).
+  Lo usa `calcular.md`, que evalúa la aritmética de forma determinista.
+
+Agregar una skill nueva es solo **crear otro `.md`** en `skills/`: no hay que tocar
+el código del router.
 
 ## Notas
 
