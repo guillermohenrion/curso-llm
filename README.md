@@ -34,8 +34,9 @@ Y en la carpeta `RAG/` hay varias variantes de RAG, de menor a mayor complejidad
 - `RAG/pdf/` — RAG sobre una **carpeta de PDFs** (indexa en ChromaDB y consulta). Ver [Sección 10](#10-rag-sobre-pdfs-opcional).
 - `RAG/mcp_jira/` — RAG + **MCP de Jira**: agente que combina el RAG con acceso de **solo lectura** a Jira. Ver [Sección 11](#11-rag--mcp-de-jira-opcional).
 
-Y por fuera del RAG, hay un ejemplo de **orquestacion de agentes**:
-- `orquestacion/` — varios agentes especializados coordinados por un supervisor, con **LangGraph**. Ver [Sección 12](#12-orquestación-de-agentes-con-langgraph-opcional).
+Y por fuera del RAG, hay ejemplos de **agentes**:
+- `agente/` — un **agente completo** (RAG + tools + memoria) con LangChain. Ver [Sección 12](#12-agente-completo-opcional).
+- `orquestacion/` — varios agentes especializados coordinados por un supervisor, con **LangGraph**. Ver [Sección 13](#13-orquestación-de-agentes-con-langgraph-opcional).
 
 ## Guía rápida (TL;DR)
 
@@ -456,7 +457,37 @@ modificar ni insertar nada en Jira.
 
 ---
 
-## 12. Orquestación de agentes con LangGraph (opcional)
+## 12. Agente completo (opcional)
+
+Un agente **conversacional** que integra en un solo ejemplo las piezas del curso:
+**tools** (RAG + calculadora + fecha + bloc de notas), **razonamiento ReAct** y
+**memoria** de la conversación. En `agente/`. Detalle en
+[`agente/README.md`](agente/README.md).
+
+```powershell
+ollama pull gemma3
+ollama pull nomic-embed-text
+pip install -r agente\requirements-agente.txt
+
+# Modo interactivo (recomendado, para aprovechar la memoria y las notas)
+python agente\agente_completo.py
+
+# Una sola pregunta
+python agente\agente_completo.py "¿Que es un agente? Y de paso, cuanto es 12*8?"
+```
+
+El agente decide en cada paso qué herramienta usar, recuerda el hilo de la charla
+y puede acumular estado (las notas). Es el ejemplo más "de agente" del repo.
+
+**Lanzador `.ps1`**:
+
+```powershell
+.\agente\iniciar_agente_demo.ps1 "¿Que es un agente?"
+```
+
+---
+
+## 13. Orquestación de agentes con LangGraph (opcional)
 
 En lugar de un único agente que hace todo, hay varios agentes especializados y
 un **supervisor** que decide, según la pregunta, a quién derivarla. Se modela
@@ -484,7 +515,7 @@ usa además una mini-herramienta propia (eval aritmético seguro).
 
 ---
 
-## 13. Estructura del repositorio
+## 14. Estructura del repositorio
 
 ```
 curso-llm/
@@ -540,6 +571,11 @@ curso-llm/
 │       ├── .env.example               #     plantilla de credenciales de Jira
 │       ├── README.md                  #     detalle del ejemplo
 │       └── requirements-mcp-jira.txt  #     dependencias (langchain-mcp-adapters, etc.)
+├── agente/                            # Agente completo (RAG + tools + memoria)
+│   ├── agente_completo.py             #   agente ReAct conversacional con 5 tools
+│   ├── iniciar_agente_demo.ps1        #   lanzador
+│   ├── requirements-agente.txt        #   dependencias
+│   └── README.md                      #   detalle del ejemplo
 ├── orquestacion/                      # Orquestacion de agentes (no RAG)
 │   ├── multiagente_langgraph.py       #   supervisor + agentes especializados (LangGraph)
 │   ├── iniciar_multiagente_demo.ps1   #   lanzador
@@ -554,7 +590,7 @@ curso-llm/
 
 ---
 
-## 14. Problemas frecuentes
+## 15. Problemas frecuentes
 
 - **`SSLCertVerificationError` al descargar modelos** (redes con proxy corporativo):
   `requirements.txt` ya incluye `pip-system-certs`, que hace que las verificaciones
@@ -583,7 +619,7 @@ curso-llm/
 
 ---
 
-## 15. Notas
+## 16. Notas
 
 - Probado con **Python 3.11** en **Windows** (CPU, sin GPU).
 - Las versiones de `requirements.txt` están fijadas para asegurar reproducibilidad.

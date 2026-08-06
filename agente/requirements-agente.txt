@@ -1,0 +1,13 @@
+# Dependencias para el agente completo (agente_completo.py).
+#
+# Requiere ademas:
+#   - Ollama con los modelos:  ollama pull gemma3 ; ollama pull nomic-embed-text
+#
+# Instalar con:  pip install -r requirements-agente.txt
+
+langchain>=0.3,<0.4
+langchain-core>=0.3,<0.4
+langchain-ollama>=0.2
+langchain-chroma>=0.2
+chromadb>=0.5
+ollama>=0.4.0
