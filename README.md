@@ -479,6 +479,10 @@ python agente\agente_completo.py "¿Que es un agente? Y de paso, cuanto es 12*8?
 El agente decide en cada paso qué herramienta usar, recuerda el hilo de la charla
 y puede acumular estado (las notas). Es el ejemplo más "de agente" del repo.
 
+Además tiene **observabilidad opcional con LangSmith**: si copiás `agente\.env.example`
+a `agente\.env` y completás `LANGSMITH_API_KEY`, cada corrida registra el árbol ReAct
+completo (Thought → Action → Observation). Sin token funciona igual, sin trazas.
+
 **Lanzador `.ps1`**:
 
 ```powershell
@@ -574,6 +578,7 @@ curso-llm/
 ├── agente/                            # Agente completo (RAG + tools + memoria)
 │   ├── agente_completo.py             #   agente ReAct conversacional con 5 tools
 │   ├── iniciar_agente_demo.ps1        #   lanzador
+│   ├── .env.example                   #   credenciales de LangSmith (opcional)
 │   ├── requirements-agente.txt        #   dependencias
 │   └── README.md                      #   detalle del ejemplo
 ├── orquestacion/                      # Orquestacion de agentes (no RAG)

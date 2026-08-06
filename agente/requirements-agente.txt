@@ -11,3 +11,7 @@ langchain-ollama>=0.2
 langchain-chroma>=0.2
 chromadb>=0.5
 ollama>=0.4.0
+
+# Observabilidad opcional con LangSmith (lee credenciales de un .env).
+python-dotenv>=1.0
+langsmith>=0.1

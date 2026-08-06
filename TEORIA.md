@@ -11,7 +11,8 @@ detrás** de cada uno.
 2. [Inferencia: local vs. remota](#2-inferencia-local-vs-remota)
 3. [RAG (Retrieval-Augmented Generation)](#3-rag-retrieval-augmented-generation)
 4. [Variantes de RAG implementadas](#4-variantes-de-rag-implementadas)
-5. [Glosario de librerías](#5-glosario-de-librerías)
+5. [Agentes y orquestación de agentes](#5-agentes-y-orquestación-de-agentes)
+6. [Glosario de librerías](#6-glosario-de-librerías)
 
 ---
 
@@ -350,18 +351,23 @@ capacidad sobre el anterior:
   - *Memoria acotada por ventana*: el historial se recorta a los últimos N
     mensajes (`trim_messages`) en vez de crecer indefinidamente.
 - **`3_rag_tools.py`** — reemplaza la cadena fija por un **agente ReAct**
+
+![alt text](image.png)
   (Reasoning + Acting): el LLM, en un bucle, decide en cada paso qué
   **herramienta** usar (`buscar_docs` = RAG, `calculadora`, `fecha_hoy`),
   observa el resultado, y repite hasta poder responder. El patrón ReAct se
   implementa con un prompt específico (Thought/Action/Observation) para que
   funcione incluso con modelos sin "tool calling" nativo, como Gemma vía
   Ollama.
-- **`4_rag_skills.py`** — patrón alternativo a los tools: un **router**
-  (el LLM clasificando la intención del usuario) despacha a UNA "skill"
-  especializada de una lista fija (`rag`, `resumir`, `traducir`, `calcular`).
-  Más declarativo y predecible que un agente que decide libremente en un
-  bucle — a costa de ser menos flexible ante tareas que combinan varias
-  skills.
+- **`4_rag_skills.py`** — patrón alternativo a los tools: cada capacidad es una
+  **"skill" definida en su propio archivo markdown** (carpeta `skills/`, con un
+  header que declara nombre y descripción) y un **router** (el LLM clasificando
+  la intención) despacha a UNA skill. Lo distintivo es la **carga a demanda**:
+  el router lee solo los headers para decidir, y el cuerpo de la skill se carga
+  recién cuando se la elige. Más declarativo y predecible que un agente que
+  decide libremente en un bucle — a costa de ser menos flexible ante tareas que
+  combinan varias skills. Detalle del patrón en
+  [5.4](#54-skills-como-archivos-markdown-agent-skills).
 - **`5_rag_langsmith.py`** — igual al RAG básico, pero con **observabilidad**:
   si están seteadas las variables de entorno de
   [LangSmith](https://smith.langchain.com), cada ejecución queda registrada
@@ -479,9 +485,187 @@ mezclarse entre sí.
 `chromadb`, `ollama` — más `langchain-community`
 (`PyPDFDirectoryLoader`) y `langchain-text-splitters` en la variante LangSmith.*
 
+### 4.7 RAG + MCP de Jira (datos en vivo)
+
+`RAG/mcp_jira/rag_mcp_jira.py` — parte del RAG y le suma acceso **en vivo** a un
+sistema externo (Jira) a través de un servidor **MCP**.
+
+**MCP (Model Context Protocol)** es un protocolo estándar (abierto) para que los
+LLMs se conecten a herramientas y fuentes de datos externas. En vez de escribir
+una integración a medida para cada servicio, un **servidor MCP** expone sus
+capacidades como *tools* con un contrato común, y cualquier cliente compatible
+las puede usar. Es, en cierto sentido, un "USB para herramientas de LLMs".
+
+En este ejemplo:
+- Se lanza el servidor **`mcp-atlassian`** como subproceso (vía `uvx`, transport
+  `stdio`), que expone las tools de Jira (buscar issues con JQL, leer un ticket, etc.).
+- `langchain-mcp-adapters` (`MultiServerMCPClient`) carga esas tools como tools
+  de LangChain, y se combinan con una tool de **RAG local** (el corpus del curso).
+- Un **agente tool-calling** decide en cada pregunta si buscar en el RAG (conceptos)
+  o consultar Jira (datos en vivo). Requiere un modelo con *tool calling* nativo
+  (`llama3.1`); `gemma3` no sirve para esto.
+
+**Solo lectura, con doble protección**: (1) el servidor se lanza con
+`READ_ONLY_MODE=true`, que deshabilita toda escritura; (2) del lado del cliente
+se **filtran** las tools por nombre y se descarta cualquiera que sugiera
+modificación (`create`, `update`, `delete`, ...). Así el agente no puede
+alterar Jira aunque el modelo lo intentara.
+
+**Contraste con el RAG clásico**: el RAG responde desde un corpus estático que
+indexaste vos; MCP le da al agente acceso a sistemas **vivos** (Jira, Confluence,
+bases de datos, APIs) en el momento de la consulta.
+
+*Librería: [`langchain-mcp-adapters`](https://github.com/langchain-ai/langchain-mcp-adapters)
+(carga tools MCP en LangChain) + el servidor `mcp-atlassian` (ejecutado con `uvx`).*
+
 ---
 
-## 5. Glosario de librerías
+## 5. Agentes y orquestación de agentes
+
+Las Secciones 3 y 4 usan el LLM para *generar* (RAG) o, a lo sumo, elegir una tool.
+Un **agente** va un paso más allá: es un LLM que **decide y actúa en un bucle**,
+usando herramientas y encadenando pasos hasta cumplir una tarea. Esta sección
+cubre los patrones de agentes del repo (`agente/` y `orquestacion/`) y el patrón
+de skills (`RAG/langchain/4_rag_skills.py`).
+
+### 5.1 Qué es un agente
+
+Un agente combina tres ingredientes:
+- Un **LLM** que razona sobre qué hacer.
+- Un conjunto de **tools** (funciones con nombre y descripción) que puede invocar.
+- Un **bucle de control** (el *executor*) que ejecuta la tool que el LLM pidió, le
+  devuelve el resultado, y le vuelve a pasar la pelota hasta que el LLM decide que
+  terminó.
+
+La diferencia con una cadena fija (como el RAG básico) es que el agente elige
+**dinámicamente** el camino: puede usar cero, una o varias tools, en el orden que
+haga falta, según lo que vaya observando.
+
+### 5.2 ReAct (Reasoning + Acting)
+
+**ReAct** es el patrón que hace funcionar a los agentes de `3_rag_tools.py` y
+`agente/agente_completo.py`. La idea: el LLM alterna **pensamiento** (Thought) y
+**acción** (Action), observando el resultado de cada acción antes de decidir la
+siguiente.
+
+![Ciclo ReAct: Thought → Action → Observation, en bucle hasta la respuesta final](assets/react_loop.png)
+
+Se implementa con un **prompt que impone un formato de texto** estricto:
+
+```
+Question: <la pregunta>
+Thought:  <el modelo razona qué hacer>
+Action:   <una tool de la lista>
+Action Input: <la entrada para la tool>
+Observation: <el resultado que devuelve la tool>
+... (Thought / Action / Action Input / Observation se repiten)
+Thought: ya sé la respuesta
+Final Answer: <respuesta al usuario>
+```
+
+El **executor** es quien cierra el ciclo (el LLM solo escribe texto, no ejecuta
+nada): manda el prompt, corta la generación en `Action` / `Action Input`, parsea
+esas líneas, ejecuta la tool correspondiente, pega el resultado como `Observation`
+y vuelve a invocar al LLM. Cuando el modelo escribe `Final Answer` en lugar de otra
+`Action`, el bucle termina.
+
+Parámetros de seguridad del `AgentExecutor`:
+- `handle_parsing_errors=True` — si el modelo no respeta el formato (frecuente en
+  modelos chicos), le devuelve el error como observación y lo deja reintentar en
+  vez de crashear.
+- `max_iterations` — tope de vueltas del ciclo, para que no quede pensando/actuando
+  sin llegar nunca a `Final Answer`.
+
+### 5.3 Tool calling nativo vs. ReAct por prompt
+
+Hay dos formas de que un LLM use herramientas:
+- **ReAct por prompt** — no requiere soporte especial del modelo: "actuar" es
+  generar texto con un formato que un parser interpreta. Anda con cualquier modelo
+  (incluido `gemma3`), pero depende de que el modelo respete el formato.
+- **Tool calling nativo** — el modelo fue entrenado para emitir directamente una
+  llamada estructurada a una función (JSON con nombre + argumentos). Es más robusto
+  (no hay que parsear texto libre), pero requiere un modelo que lo soporte
+  (`llama3.1`, GPT-4, Claude, etc.). Es lo que usa `RAG/mcp_jira/` con
+  `create_tool_calling_agent`.
+
+Regla práctica del repo: con Gemma → ReAct (`create_react_agent`); con un modelo
+con tools → `create_tool_calling_agent`.
+
+### 5.4 Skills como archivos markdown (Agent Skills)
+
+`RAG/langchain/4_rag_skills.py` implementa el patrón de **Agent Skills**: cada
+capacidad vive en su **propio archivo `.md`** (carpeta `skills/`), con un **header
+(frontmatter)** que declara qué hace y un cuerpo con las instrucciones.
+
+```markdown
+---
+name: traducir
+description: Traducir al ingles un texto que provee el usuario.
+---
+Sos un traductor. Traduci al ingles el texto del usuario...
+```
+
+Lo esencial es la **carga a demanda** (*progressive disclosure*):
+- Para **decidir**, el router lee SOLO los headers (`name` + `description`) de cada
+  skill. Es barato y no mete el prompt entero de todas las skills en el contexto.
+- Recién cuando se **elige** una skill se carga su **cuerpo** completo y se ejecuta.
+
+El header admite campos opcionales que cambian la ejecución: `retrieval: true`
+(la skill inyecta contexto de la base vectorial) y `handler: <nombre>` (la resuelve
+una función Python registrada, no el LLM — así `calcular` hace aritmética exacta).
+Agregar una skill nueva es solo crear otro `.md`, sin tocar el código.
+
+**¿Coincide con las Skills de Claude?** Captura la idea central (markdown +
+frontmatter + carga a demanda), pero es una versión simplificada. En Claude una
+skill es una **carpeta** (`SKILL.md` + recursos/scripts), la **decide e invoca el
+propio modelo** de forma autónoma (no un router externo), es **componible** (varias
+skills en una tarea) y su "tercer nivel" son archivos/scripts que se cargan o
+ejecutan bajo demanda en un sandbox. Los campos `retrieval` y `handler` de este
+ejemplo son atajos didácticos, no parte de la especificación.
+
+### 5.5 Agente completo (RAG + tools + memoria)
+
+`agente/agente_completo.py` junta las piezas en un agente **conversacional**:
+- **Tools**: `buscar_conocimiento` (RAG), `calculadora`, `fecha_hoy`, y
+  `guardar_nota` / `listar_notas` (un bloc de notas que **acumula estado** entre
+  turnos).
+- **Razonamiento ReAct** (5.2) para decidir qué tool usar.
+- **Memoria**: guarda cada par (pregunta, respuesta) y le inyecta el historial
+  (ventana de últimos turnos) al prompt, así entiende seguimientos.
+- **Observabilidad opcional con LangSmith**: si hay credenciales en un `.env`, cada
+  corrida registra el árbol ReAct completo (cada Thought → Action → Observation,
+  con latencias y tokens) — igual que el ejemplo 5 de LangChain, pero aplicado a un
+  agente, donde ver el bucle paso a paso es especialmente útil para depurar.
+
+### 5.6 Orquestación multi-agente con LangGraph
+
+`orquestacion/multiagente_langgraph.py` — cuando un solo agente no alcanza, se
+**orquestan varios** agentes especializados. Se usa **LangGraph**, la librería de
+LangChain para modelar flujos como un **grafo de estados** (con nodos, aristas,
+ramificaciones y —si hace falta— ciclos y memoria).
+
+Patrón implementado (**supervisor / router**):
+- Un **estado compartido** (`TypedDict` con `pregunta`, `ruta`, `respuesta`) que
+  todos los nodos leen y actualizan.
+- Un nodo **supervisor** que clasifica la pregunta y elige la ruta.
+- Nodos **agentes especializados** (`matematico`, `traductor`, `explicador`), cada
+  uno con su propio system prompt (y el matemático con su propia mini-herramienta).
+- Una **arista condicional** (`add_conditional_edges`) que, según lo que decidió el
+  supervisor, deriva a un agente u otro. Es ruteo **dinámico** dentro del grafo.
+
+**ReAct vs. LangGraph**: ReAct es el bucle de decisión *dentro* de UN agente;
+LangGraph orquesta el flujo *entre* varios nodos/agentes. Se complementan: cada
+nodo de un grafo LangGraph podría, internamente, ser un agente ReAct.
+
+*Nota de compatibilidad: se fija `langgraph<0.3` porque las versiones 0.3+/1.x
+exigen `langchain-core` 1.x, que rompe el `langchain` 0.3.x del resto del curso.*
+
+*Librería: [`langgraph`](https://langchain-ai.github.io/langgraph/)
+(`StateGraph`, `add_conditional_edges`, `START`, `END`).*
+
+---
+
+## 6. Glosario de librerías
 
 | Librería | Para qué se usa en este repo |
 |---|---|
@@ -503,7 +687,9 @@ mezclarse entre sí.
 | [`langchain-chroma`](https://pypi.org/project/langchain-chroma/) | Integración de LangChain con ChromaDB |
 | `langchain-community` | Loaders de documentos (ej. `PyPDFDirectoryLoader`) |
 | `langchain-text-splitters` | Estrategias de chunking listas para usar (`RecursiveCharacterTextSplitter`) |
-| [`langsmith`](https://docs.smith.langchain.com/) | Observabilidad/tracing de aplicaciones LangChain |
+| [`langgraph`](https://langchain-ai.github.io/langgraph/) | Orquestación de agentes como grafo de estados (`StateGraph`, aristas condicionales) |
+| [`langchain-mcp-adapters`](https://github.com/langchain-ai/langchain-mcp-adapters) | Cargar tools de servidores MCP como tools de LangChain |
+| [`langsmith`](https://docs.smith.langchain.com/) | Observabilidad/tracing de aplicaciones LangChain y agentes |
 | [`python-dotenv`](https://github.com/theskumar/python-dotenv) | Cargar variables de entorno (API keys) desde un archivo `.env` local |
 | [`pip-system-certs`](https://pypi.org/project/pip-system-certs/) | Evita errores SSL al descargar modelos en redes corporativas con proxy |
 

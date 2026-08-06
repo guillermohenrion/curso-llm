@@ -18,11 +18,17 @@ Usamos ReAct (basado en prompt) para que ande con gemma3, que no hace
 "tool calling" nativo. Si usas un modelo con tools (p. ej. llama3.1), podes
 migrar a create_tool_calling_agent.
 
+Observabilidad (opcional): si hay credenciales de LangSmith en un .env, cada
+corrida se registra en https://smith.langchain.com y podes ver el arbol ReAct
+completo (cada Thought -> Action -> Observation, con latencias y tokens). Sin
+credenciales, el agente funciona igual pero sin trazas.
+
 Requisitos:
     - Ollama corriendo con:
           ollama pull gemma3
           ollama pull nomic-embed-text
     - pip install -r requirements-agente.txt
+    - (opcional) copy .env.example .env  y completar LANGSMITH_API_KEY
 
 Uso:
     python agente_completo.py                 # modo interactivo (recomendado)
@@ -31,7 +37,10 @@ Uso:
 from __future__ import annotations
 
 import datetime as _dt
+import os
 import sys
+
+from dotenv import load_dotenv
 
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.tools.retriever import create_retriever_tool
@@ -45,6 +54,34 @@ try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
     pass
+
+# Cargamos variables de entorno desde .env (busca en esta carpeta y en la raiz).
+load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+
+# Activamos el tracing de LangSmith si hay API key (LangChain lo envia solo).
+if os.getenv("LANGSMITH_API_KEY") and not os.getenv("LANGSMITH_TRACING"):
+    os.environ["LANGSMITH_TRACING"] = "true"
+os.environ.setdefault("LANGSMITH_PROJECT", "curso-llm-agente")
+
+
+def check_langsmith() -> bool:
+    """Verifica credenciales de LangSmith y avisa si el tracing esta o no activo."""
+    if not os.getenv("LANGSMITH_API_KEY"):
+        print("[aviso] No hay LANGSMITH_API_KEY. El agente funciona igual, "
+              "pero NO se registran trazas en LangSmith.")
+        print("        Configuralo en un archivo .env (ver .env.example) para "
+              "habilitar la observabilidad.\n")
+        return False
+    try:
+        from langsmith import Client
+        Client()  # valida credenciales/endpoint
+        print(f"[ok] Tracing de LangSmith habilitado. Proyecto: "
+              f"{os.getenv('LANGSMITH_PROJECT')}\n")
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(f"[aviso] No se pudo inicializar el cliente de LangSmith: {e}\n")
+        return False
 
 CHAT_MODEL = "gemma3"
 EMBED_MODEL = "nomic-embed-text"
@@ -195,16 +232,26 @@ def formatear_historial(historial: list[tuple[str, str]]) -> str:
 
 
 def main() -> None:
+    tracing_on = check_langsmith()
     executor = build_agent()
     historial: list[tuple[str, str]] = []
 
     def atender(pregunta: str) -> str:
-        salida = executor.invoke({
-            "input": pregunta,
-            "chat_history": formatear_historial(historial),
-        })
+        # run_name/tags/metadata aparecen en LangSmith para filtrar y organizar trazas.
+        config = {
+            "run_name": "agente_completo",
+            "tags": ["curso-llm", "agente", "react"],
+            "metadata": {"turno": len(historial) + 1},
+        }
+        salida = executor.invoke(
+            {"input": pregunta, "chat_history": formatear_historial(historial)},
+            config=config,
+        )
         respuesta = salida["output"]
         historial.append((pregunta, respuesta))  # se suma a la memoria
+        if tracing_on:
+            print(f"\n[LangSmith] Traza registrada en https://smith.langchain.com "
+                  f"(proyecto: {os.getenv('LANGSMITH_PROJECT')})")
         return respuesta
 
     argv = sys.argv[1:]

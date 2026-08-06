@@ -62,6 +62,26 @@ Ideas para probar en modo interactivo (y ver la memoria + las notas en acción):
 .\iniciar_agente_demo.ps1 "¿Que es un agente?"
 ```
 
+## Observabilidad con LangSmith (opcional)
+
+El agente puede registrar cada corrida en [LangSmith](https://smith.langchain.com),
+donde se ve el **árbol ReAct completo**: cada `Thought → Action → Observation`, qué
+tool se llamó, con qué input, latencias y tokens. Muy útil para depurar cuando el
+modelo se desvía del formato.
+
+1. Creá una cuenta gratis en https://smith.langchain.com y generá una **API key**
+   (Settings → API Keys).
+2. Copiá las credenciales a un `.env`:
+   ```powershell
+   copy .env.example .env
+   ```
+   Editá `.env` y completá `LANGSMITH_API_KEY`. El `.env` **no se sube al repo**.
+3. Corré el agente normalmente: el tracing se activa solo si hay API key. Si no la
+   configurás, el agente funciona igual pero sin registrar trazas.
+
+Cada corrida se etiqueta con `run_name`, `tags` y `metadata` (el número de turno),
+para poder filtrarlas en LangSmith.
+
 ## Cómo funciona
 
 1. **Tools** — se arma la lista de herramientas (RAG + calculadora + fecha + notas).
