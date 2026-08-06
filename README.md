@@ -32,6 +32,7 @@ Y en la carpeta `RAG/` hay varias variantes de RAG, de menor a mayor complejidad
 - `RAG/graph/` — **Graph RAG**: recuperación sobre un grafo de conocimiento. Ver [Sección 8](#8-graph-rag-opcional).
 - `RAG/wiki_llm/` — **Wiki-LLM**: RAG sobre una wiki de markdown (patrón de Karpathy). Ver [Sección 9](#9-wiki-llm-opcional).
 - `RAG/pdf/` — RAG sobre una **carpeta de PDFs** (indexa en ChromaDB y consulta). Ver [Sección 10](#10-rag-sobre-pdfs-opcional).
+- `RAG/mcp_jira/` — RAG + **MCP de Jira**: agente que combina el RAG con acceso de **solo lectura** a Jira. Ver [Sección 11](#11-rag--mcp-de-jira-opcional).
 
 ## Guía rápida (TL;DR)
 
@@ -423,7 +424,36 @@ fragmentos más coherentes (y de tamaño más variable) al no partir oraciones.
 
 ---
 
-## 11. Estructura del repositorio
+## 11. RAG + MCP de Jira (opcional)
+
+Un agente que combina el RAG del curso con acceso **en vivo a Jira** vía un
+servidor **MCP** (Model Context Protocol). El acceso a Jira es de **solo lectura**
+(doble protección: `READ_ONLY_MODE` en el servidor + filtro de tools en el cliente).
+En `RAG/mcp_jira/`. Detalle en [`RAG/mcp_jira/README.md`](RAG/mcp_jira/README.md).
+
+```powershell
+# Modelo que soporte tool-calling (gemma3 NO sirve para esto):
+ollama pull llama3.1
+ollama pull nomic-embed-text
+
+# uv instalado (provee uvx, que lanza el servidor MCP): https://docs.astral.sh/uv/
+pip install -r RAG\mcp_jira\requirements-mcp-jira.txt
+
+# Token de Jira Cloud en .env (si no lo configurás, el agente arranca solo con el RAG):
+copy RAG\mcp_jira\.env.example RAG\mcp_jira\.env
+#  editá el .env y completá JIRA_URL / JIRA_USERNAME / JIRA_API_TOKEN
+
+python RAG\mcp_jira\rag_mcp_jira.py "Listá los issues abiertos del proyecto ABC"  # usa Jira
+python RAG\mcp_jira\rag_mcp_jira.py "¿Que es una base de datos vectorial?"        # usa el RAG
+```
+
+El agente decide en cada pregunta si buscar en la base de conocimiento del curso
+(tool de RAG local) o consultar Jira (tools del MCP `mcp-atlassian`). No puede
+modificar ni insertar nada en Jira.
+
+---
+
+## 12. Estructura del repositorio
 
 ```
 curso-llm/
@@ -463,16 +493,21 @@ curso-llm/
 │   │   ├── iniciar_wiki_demo.ps1      #     lanzador
 │   │   ├── requirements-wiki.txt      #     dependencias (solo ollama)
 │   │   └── wiki/                      #     base de conocimiento (.md)
-│   └── pdf/                           #   RAG sobre una carpeta de PDFs
-│       ├── rag_pdf.py                 #     version simple, chunking por caracteres+overlap
-│       ├── iniciar_pdf_demo.ps1       #     lanzador (avisa si docs/ esta vacia)
-│       ├── rag_pdf_semantico.py       #     misma version, chunking por oraciones completas
-│       ├── iniciar_pdf_semantico_demo.ps1 #  lanzador
-│       ├── rag_pdf_langsmith.py       #     version LangChain + tracing en LangSmith
-│       ├── iniciar_pdf_langsmith_demo.ps1 #  lanzador
-│       ├── requirements-pdf.txt       #     dependencias de las versiones simples
-│       ├── requirements-pdf-langsmith.txt #  dependencias de la version LangSmith
-│       └── docs/                      #     poné aca tus PDFs (no se versionan)
+│   ├── pdf/                           #   RAG sobre una carpeta de PDFs
+│   │   ├── rag_pdf.py                 #     version simple, chunking por caracteres+overlap
+│   │   ├── iniciar_pdf_demo.ps1       #     lanzador (avisa si docs/ esta vacia)
+│   │   ├── rag_pdf_semantico.py       #     misma version, chunking por oraciones completas
+│   │   ├── iniciar_pdf_semantico_demo.ps1 #  lanzador
+│   │   ├── rag_pdf_langsmith.py       #     version LangChain + tracing en LangSmith
+│   │   ├── iniciar_pdf_langsmith_demo.ps1 #  lanzador
+│   │   ├── requirements-pdf.txt       #     dependencias de las versiones simples
+│   │   ├── requirements-pdf-langsmith.txt #  dependencias de la version LangSmith
+│   │   └── docs/                      #     poné aca tus PDFs (no se versionan)
+│   └── mcp_jira/                      #   RAG + MCP de Jira (solo lectura)
+│       ├── rag_mcp_jira.py            #     agente: tool de RAG + tools de Jira (MCP)
+│       ├── .env.example               #     plantilla de credenciales de Jira
+│       ├── README.md                  #     detalle del ejemplo
+│       └── requirements-mcp-jira.txt  #     dependencias (langchain-mcp-adapters, etc.)
 ├── requirements.txt                   # Dependencias del notebook
 ├── requirements-hf-remoto.txt         # Dependencias de la demo remota de HF
 ├── .env.example                       # Plantilla para el token de HF (copiar a .env)
@@ -482,7 +517,7 @@ curso-llm/
 
 ---
 
-## 12. Problemas frecuentes
+## 13. Problemas frecuentes
 
 - **`SSLCertVerificationError` al descargar modelos** (redes con proxy corporativo):
   `requirements.txt` ya incluye `pip-system-certs`, que hace que las verificaciones
@@ -511,7 +546,7 @@ curso-llm/
 
 ---
 
-## 13. Notas
+## 14. Notas
 
 - Probado con **Python 3.11** en **Windows** (CPU, sin GPU).
 - Las versiones de `requirements.txt` están fijadas para asegurar reproducibilidad.

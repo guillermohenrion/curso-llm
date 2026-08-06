@@ -1,0 +1,19 @@
+# Dependencias para el RAG + MCP de Jira (rag_mcp_jira.py).
+#
+# Requiere ademas:
+#   - Ollama con un modelo que soporte tools:  ollama pull llama3.1 ; ollama pull nomic-embed-text
+#   - 'uv' instalado para lanzar el servidor MCP con uvx:  https://docs.astral.sh/uv/
+#   - Un token de Jira (Cloud) en .env.
+#
+# Instalar con:  pip install -r requirements-mcp-jira.txt
+
+langchain>=0.3,<0.4
+langchain-core>=0.3,<0.4
+langchain-ollama>=0.2
+langchain-chroma>=0.2
+# IMPORTANTE: fijamos <0.2 a proposito. La v0.3.x de langchain-mcp-adapters exige
+# langchain-core 1.x, que rompe langchain 0.3.x (el resto del curso). No subir el pin.
+langchain-mcp-adapters>=0.1,<0.2
+chromadb>=0.5
+ollama>=0.4.0
+python-dotenv>=1.0
