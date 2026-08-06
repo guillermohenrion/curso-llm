@@ -351,8 +351,6 @@ capacidad sobre el anterior:
   - *Memoria acotada por ventana*: el historial se recorta a los últimos N
     mensajes (`trim_messages`) en vez de crecer indefinidamente.
 - **`3_rag_tools.py`** — reemplaza la cadena fija por un **agente ReAct**
-
-![alt text](image.png)
   (Reasoning + Acting): el LLM, en un bucle, decide en cada paso qué
   **herramienta** usar (`buscar_docs` = RAG, `calculadora`, `fecha_hoy`),
   observa el resultado, y repite hasta poder responder. El patrón ReAct se
@@ -575,6 +573,38 @@ Parámetros de seguridad del `AgentExecutor`:
   vez de crashear.
 - `max_iterations` — tope de vueltas del ciclo, para que no quede pensando/actuando
   sin llegar nunca a `Final Answer`.
+
+Visto como pseudocódigo, el patrón es un bucle controlado de razonamiento-acción
+(adaptado de *[ReAct Agent Pattern Explained](https://manalisomani099.medium.com/react-agent-pattern-explained-ai-reasoning-action-c8602122a833)*,
+Manali Somani):
+
+```
+reasoning_history = []
+while pasos < N:
+    razonamiento = LLM(prompt + reasoning_history)
+    if razonamiento propone una tool:
+        resultado = ejecutar_tool()            # lo hace el sistema, no el LLM
+        reasoning_history.append(razonamiento + resultado)
+    else:
+        return respuesta_final
+```
+
+Ese artículo lista los elementos que debería tener el prompt inicial de un agente
+ReAct; nuestro `REACT_PROMPT` los cumple todos:
+
+| Elemento del patrón (artículo) | Dónde está en el ejemplo |
+|---|---|
+| Pedirle al LLM que resuelva la consulta | `"Sos un asistente..."` + `Question: {input}` |
+| Lista clara de tools (ideal < 5-10) | `{tools}` / `[{tool_names}]` — el agente completo usa **5** |
+| Emitir razonamiento + la acción a tomar | formato `Thought` / `Action` / `Action Input` |
+| Historial de razonamientos/acciones (inicialmente vacío) | `{agent_scratchpad}` (en la tarea) y `{chat_history}` (entre turnos) |
+| Límite de N loops | `max_iterations` en el `AgentExecutor` |
+| El LLM no ejecuta las tools, lo hace el sistema | el `AgentExecutor` ejecuta la tool y devuelve la `Observation` |
+
+*(El artículo también contrasta ReAct con Chain-of-Thought —razonar una sola vez,
+sin tools— y con Plan-and-Execute —planificar todo de entrada y ejecutar—; y
+recomienda pocas tools y usar ReAct dentro de un sistema más grande con memoria y
+ruteo, que en el repo son la memoria del agente y la orquestación de [5.6](#56-orquestación-multi-agente-con-langgraph).)*
 
 ### 5.3 Tool calling nativo vs. ReAct por prompt
 
