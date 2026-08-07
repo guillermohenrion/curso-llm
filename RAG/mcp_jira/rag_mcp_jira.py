@@ -28,6 +28,18 @@ Uso:
     python rag_mcp_jira.py                                          # interactivo
 
 Nota: si no configurás Jira, el agente igual arranca pero solo con la tool de RAG.
+
+Gotchas reales encontrados al correr esto (por eso algunas lineas de mas abajo
+tienen pinta de "parche"):
+    - 'pip install' puede traer mcp>=2.0, incompatible con langchain-mcp-adapters
+      0.1.x -> fijar mcp<2.0 en requirements-mcp-jira.txt.
+    - uvx puede fallar con "invalid peer certificate" si un antivirus/firewall
+      intercepta TLS -> se lanza con el flag --native-tls (ver load_jira_tools).
+    - El MCP de Atlassian expone ~35 tools; sus esquemas no entran en el
+      contexto default de Ollama (2048 tokens) y el modelo deja de ver las
+      tools -> se sube num_ctx explicitamente (ver build_agent).
+    - Jira Cloud rechaza JQL sin restricciones ("unbounded query") -> el
+      prompt le pide al modelo usar una JQL acotada (por proyecto o fecha).
 """
 from __future__ import annotations
 
@@ -133,7 +145,9 @@ async def load_jira_tools() -> list:
     client = MultiServerMCPClient({
         "jira": {
             "command": "uvx",
-            "args": ["mcp-atlassian"],
+            # --native-tls: usa el almacen de certificados del sistema en vez del
+            # propio de uv, necesario si un antivirus/firewall intercepta TLS.
+            "args": ["--native-tls", "mcp-atlassian"],
             "transport": "stdio",
             "env": {
                 "JIRA_URL": jira_url,
@@ -152,6 +166,11 @@ async def load_jira_tools() -> list:
     # PROTECCION 2 (defensa en profundidad): ademas filtramos del lado del cliente
     # y dejamos SOLO tools de lectura, descartando cualquiera con verbos de escritura.
     de_lectura = [t for t in tools if es_solo_lectura(t.name)]
+    # Si una tool falla (p. ej. JQL rechazada por Jira), que el error vuelva como
+    # Observation en vez de tirar abajo el AgentExecutor: asi el agente puede leer
+    # el motivo y reintentar con una consulta mejor.
+    for t in de_lectura:
+        t.handle_tool_error = True
     descartadas = [t.name for t in tools if not es_solo_lectura(t.name)]
     if descartadas:
         print(f"[seguridad] Tools de escritura descartadas ({len(descartadas)}): "
@@ -161,7 +180,10 @@ async def load_jira_tools() -> list:
 
 
 def build_agent(tools):
-    llm = ChatOllama(model=TOOL_MODEL, temperature=0.0)
+    # num_ctx: el default de Ollama (2048) no alcanza para los esquemas de las
+    # ~35 tools del MCP de Atlassian + RAG; con contexto chico el modelo ni
+    # siquiera ve las tools y termina alucinando una respuesta en texto plano.
+    llm = ChatOllama(model=TOOL_MODEL, temperature=0.0, num_ctx=16384)
     prompt = ChatPromptTemplate.from_messages([
         ("system",
          "Sos un asistente que ayuda con el curso de LLMs y con Jira.\n"
@@ -170,6 +192,10 @@ def build_agent(tools):
          "- Para consultas sobre issues, tickets, proyectos o sprints, usá las tools "
          "de Jira (MCP). El acceso a Jira es de SOLO LECTURA: NO podés crear, editar, "
          "borrar, comentar ni transicionar nada. Si te piden modificar algo, aclaralo.\n"
+         "- Nunca inventes una clave de issue (p. ej. 'PROJ-123'). Si no la sabés, "
+         "primero usá 'jira_search'. Jira exige una JQL ACOTADA (no acepta una consulta "
+         "sin restricciones): usá algo como \"created >= -365d ORDER BY created DESC\" "
+         "para traer cualquier issue reciente, y recién ahí consultá el detalle si hace falta.\n"
          "Respondé en español y citá de donde sacaste la informacion."),
         ("human", "{input}"),
         MessagesPlaceholder("agent_scratchpad"),

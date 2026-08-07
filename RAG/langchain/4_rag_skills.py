@@ -62,7 +62,14 @@ class Skill:
 # Parser minimo de frontmatter (sin dependencias extra)
 # ---------------------------------------------------------------------------
 def _parse_frontmatter(texto: str) -> tuple[dict, str]:
-    """Separa el header '--- ... ---' del cuerpo. Devuelve (dict_header, cuerpo)."""
+    """Separa el header '--- ... ---' del cuerpo. Devuelve (dict_header, cuerpo).
+
+    split("---", 2) corta como maximo 2 veces, asi que un '---' que aparezca
+    despues (p. ej. un separador dentro del cuerpo de la skill) no rompe el
+    parseo: partes queda ['', header, resto-del-cuerpo-con-sus-propios-'---'].
+    No es YAML real (no soporta listas/anidamiento) a proposito: alcanza para
+    'name'/'description'/'retrieval'/'handler' y evita sumar una dependencia.
+    """
     if not texto.startswith("---"):
         return {}, texto.strip()
     partes = texto.split("---", 2)  # ['', header, cuerpo]
@@ -180,10 +187,16 @@ def build_router(catalogo: dict[str, Skill]):
     chain = prompt | llm | StrOutputParser()
 
     def router(entrada: str) -> str:
+        # El LLM deberia responder solo el nombre, pero a veces agrega texto
+        # alrededor (p. ej. "La skill 'traducir'."); por eso no comparamos
+        # igualdad exacta, sino que buscamos el nombre de cada skill DENTRO
+        # de lo que respondio.
         elegido = chain.invoke({"catalogo": catalogo_txt, "entrada": entrada}).strip().lower()
         for nombre in catalogo:
             if nombre in elegido:
                 return nombre
+        # Si no matcheo ninguna (respuesta rara / vacia), no fallamos: caemos
+        # a 'rag' como default razonable, o a la primera skill si ni esa existe.
         return "rag" if "rag" in catalogo else next(iter(catalogo))  # fallback
 
     return router

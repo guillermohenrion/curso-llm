@@ -14,6 +14,11 @@ langchain-chroma>=0.2
 # IMPORTANTE: fijamos <0.2 a proposito. La v0.3.x de langchain-mcp-adapters exige
 # langchain-core 1.x, que rompe langchain 0.3.x (el resto del curso). No subir el pin.
 langchain-mcp-adapters>=0.1,<0.2
+# IMPORTANTE: fijamos mcp<2.0 a proposito. langchain-mcp-adapters==0.1.x no
+# declara un techo de version para 'mcp', y sin este pin 'pip install' trae
+# mcp 2.0.x (reestructuro su API interna) -> ImportError:
+# "No module named 'mcp.shared.session'" al arrancar rag_mcp_jira.py.
+mcp<2.0
 chromadb>=0.5
 ollama>=0.4.0
 python-dotenv>=1.0
