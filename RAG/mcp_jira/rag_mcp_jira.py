@@ -125,7 +125,13 @@ def build_retriever_tool():
 
 
 async def load_jira_tools() -> list:
-    """Conecta al MCP de Atlassian y devuelve sus tools (o [] si no hay credenciales)."""
+    """Conecta al MCP de Atlassian y devuelve sus tools (o [] si no hay credenciales).
+
+    Devolver [] en vez de lanzar una excepcion es deliberado: en cada punto de
+    fallo (sin credenciales, libreria no instalada, MCP no responde) el script
+    sigue funcionando igual, solo que mas limitado (unicamente RAG). Asi el
+    ejemplo nunca se rompe por completo por un problema de infra externa.
+    """
     jira_url = os.getenv("JIRA_URL")
     jira_user = os.getenv("JIRA_USERNAME")
     jira_token = os.getenv("JIRA_API_TOKEN")
@@ -133,13 +139,18 @@ async def load_jira_tools() -> list:
         print("[aviso] Faltan credenciales de Jira en .env: se usa SOLO la tool de RAG.\n")
         return []
 
+    # Import diferido (no al tope del archivo): si esta libreria no esta
+    # instalada, el resto del script (RAG local) igual tiene que poder correr.
     try:
         from langchain_mcp_adapters.client import MultiServerMCPClient
     except ImportError:
         print("[aviso] Falta 'langchain-mcp-adapters'. Instalá requirements-mcp-jira.txt.\n")
         return []
 
-    # Se lanza el servidor MCP 'mcp-atlassian' como subproceso (via uvx) por stdio.
+    # MultiServerMCPClient no abre una conexion de red directa: lanza
+    # 'uvx mcp-atlassian' como SUBPROCESO y le habla por stdin/stdout con el
+    # protocolo MCP (transport='stdio'). El subproceso es quien realmente le
+    # pega a la API REST de Jira con las credenciales que le pasamos por 'env'.
     # PROTECCION 1: READ_ONLY_MODE=true hace que el propio servidor MCP deshabilite
     # todas las operaciones de escritura (crear/editar/borrar/comentar/transicionar).
     client = MultiServerMCPClient({
@@ -158,6 +169,10 @@ async def load_jira_tools() -> list:
         }
     })
     try:
+        # get_tools() es lo que efectivamente arranca el subproceso (primera
+        # vez que uvx corre, descarga mcp-atlassian) y le pide su catalogo de
+        # tools (protocolo MCP: 'list_tools'), ya convertidas a BaseTool de
+        # LangChain para que el agente las pueda invocar como cualquier otra.
         tools = await client.get_tools()
     except Exception as e:  # noqa: BLE001
         print(f"[aviso] No se pudo conectar al MCP de Jira ({e}). Se usa solo RAG.\n")
@@ -180,6 +195,16 @@ async def load_jira_tools() -> list:
 
 
 def build_agent(tools):
+    """Arma el agente con TOOL CALLING NATIVO (no ReAct por prompt).
+
+    A diferencia de 3_rag_tools.py y agente/agente_completo.py -que usan
+    create_react_agent porque corren con gemma3, sin tool calling nativo-
+    aca usamos create_tool_calling_agent: el LLM devuelve la tool y sus
+    argumentos en un formato estructurado propio de Ollama, no como texto
+    "Action: ... Action Input: ..." que despues hay que parsear. Por eso
+    'Sos un asistente que ayuda con el curso de LLMs y con Jira.\\n' no
+    necesita explicar un formato de salida: llama3.1 ya sabe emitirlo.
+    """
     # num_ctx: el default de Ollama (2048) no alcanza para los esquemas de las
     # ~35 tools del MCP de Atlassian + RAG; con contexto chico el modelo ni
     # siquiera ve las tools y termina alucinando una respuesta en texto plano.
@@ -213,6 +238,10 @@ async def responder(executor, pregunta: str) -> None:
 
 
 async def main_async() -> None:
+    # La tool de RAG siempre esta; las de Jira se suman solo si el MCP
+    # conecto bien (load_jira_tools ya devuelve [] en cualquier caso de
+    # fallo). El agente termina viendo una sola lista pareja de tools, sin
+    # necesidad de saber cual vino de donde.
     tools = [build_retriever_tool()]
     tools += await load_jira_tools()
     executor = build_agent(tools)

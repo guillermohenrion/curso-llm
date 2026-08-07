@@ -91,25 +91,43 @@ def _leer_header(ruta: str) -> dict:
 
 
 def cargar_catalogo() -> dict[str, Skill]:
-    """Descubre las skills de skills/*.md leyendo solo sus headers (no el cuerpo)."""
+    """Descubre las skills de skills/*.md leyendo solo sus headers (no el cuerpo).
+
+    Esto SI se hace de una para todas las skills (no es "a demanda"): el router
+    necesita conocer nombre+descripcion de cada una para poder elegir, asi que
+    no hay forma de diferir esta parte. Lo que se difiere es lo caro (el
+    cuerpo/instrucciones), no el catalogo en si. sorted() ademas hace que el
+    orden de deteccion sea estable entre corridas (no depende del filesystem).
+    """
     catalogo: dict[str, Skill] = {}
     for archivo in sorted(os.listdir(SKILLS_DIR)):
         if not archivo.endswith(".md"):
             continue
         ruta = os.path.join(SKILLS_DIR, archivo)
         header = _leer_header(ruta)
+        # Si el .md no declara 'name' en el header, usamos el nombre del
+        # archivo como fallback (asi una skill nunca queda sin nombre).
         nombre = header.get("name") or os.path.splitext(archivo)[0]
         catalogo[nombre] = Skill(
             nombre=nombre,
             descripcion=header.get("description", ""),
             ruta=ruta,
+            # Todo lo que no sea name/description es config especifica de la
+            # skill (retrieval, handler, ...): la guardamos generica en 'meta'
+            # para no tener que tocar el dataclass cada vez que se agrega un
+            # campo nuevo al formato de skill.
             meta={k: v for k, v in header.items() if k not in ("name", "description")},
         )
     return catalogo
 
 
 def cargar_cuerpo(skill: Skill) -> str:
-    """Carga (a demanda) el cuerpo/instrucciones de la skill y lo cachea."""
+    """Carga (a demanda) el cuerpo/instrucciones de la skill y lo cachea.
+
+    El cacheo en skill.cuerpo importa en modo interactivo: si el usuario elige
+    la misma skill dos veces en la sesion, la segunda vez no se vuelve a leer
+    ni parsear el archivo del disco.
+    """
     if skill.cuerpo is None:
         with open(skill.ruta, encoding="utf-8") as f:
             _, cuerpo = _parse_frontmatter(f.read())
@@ -121,6 +139,14 @@ def cargar_cuerpo(skill: Skill) -> str:
 # Handlers de codigo (para skills con 'handler: <nombre>' en el header)
 # ---------------------------------------------------------------------------
 def _eval_aritmetico(entrada: str, skill: Skill) -> str:
+    """Handler de la skill 'calcular': no pasa por el LLM, resuelve en Python puro.
+
+    Filtramos la entrada a un whitelist de caracteres (digitos/operadores)
+    ANTES de eval(): asi, aunque el usuario mande texto arbitrario en vez de
+    una cuenta, a eval() solo le llega aritmetica pura, nunca codigo Python
+    (nombres, atributos, llamadas). __builtins__: {} es una segunda barrera
+    por si algo se cuela igual.
+    """
     permitido = set("0123456789+-*/(). ")
     expr = "".join(ch for ch in entrada if ch in permitido).strip()
     if not expr:
@@ -140,10 +166,18 @@ HANDLERS = {
 # Ejecucion de una skill (segun su header)
 # ---------------------------------------------------------------------------
 def ejecutar_skill(skill: Skill, entrada: str) -> str:
-    """Ejecuta la skill elegida: por handler de codigo, con RAG, o como prompt simple."""
+    """Ejecuta la skill elegida: por handler de codigo, con RAG, o como prompt simple.
+
+    Las 3 ramas son mutuamente excluyentes y se leen en orden de prioridad:
+    handler (codigo) > retrieval (RAG) > prompt simple. Una skill con
+    'handler' nunca llega a instanciar el LLM (ver el 'return' temprano),
+    asi que 'calcular' responde sin gastar ni un token de inferencia.
+    """
     cuerpo = cargar_cuerpo(skill)
 
-    # 1) Skill respaldada por codigo (handler Python).
+    # 1) Skill respaldada por codigo (handler Python): se resuelve entera en
+    #    Python, el 'cuerpo' de la skill ni se usa. Return temprano para no
+    #    pagar el costo de get_llm() cuando no hace falta LLM.
     handler = skill.meta.get("handler")
     if handler:
         fn = HANDLERS.get(handler)
@@ -153,7 +187,9 @@ def ejecutar_skill(skill: Skill, entrada: str) -> str:
 
     llm = get_llm()
 
-    # 2) Skill con recuperacion (RAG): el cuerpo es la instruccion + inyectamos contexto.
+    # 2) Skill con recuperacion (RAG): el cuerpo de la skill se usa como
+    #    INSTRUCCION del prompt (no como respuesta), y se le agrega el
+    #    contexto recuperado de la base vectorial antes de generar.
     if skill.meta.get("retrieval", "").lower() == "true":
         retriever = get_retriever(k=2)
         prompt = ChatPromptTemplate.from_template(
