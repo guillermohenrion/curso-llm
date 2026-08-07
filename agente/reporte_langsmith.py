@@ -40,6 +40,47 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 PROYECTO_DEFAULT = os.getenv("LANGSMITH_PROJECT") or "curso-llm-rag_agente_react"
 SALIDA_DEFAULT = os.path.join(os.path.dirname(__file__), "reporte_langsmith.html")
 
+# Diagrama del ciclo ReAct (SVG inline -> el HTML queda autocontenido, sin imagen externa).
+DIAGRAMA_REACT = """
+<svg viewBox="0 0 800 250" width="100%" style="max-width:760px;display:block;margin:8px auto"
+     font-family="system-ui, Segoe UI, sans-serif" role="img"
+     aria-label="Ciclo ReAct: Thought, Action, Observation, en bucle, y salida a Final Answer">
+  <defs>
+    <marker id="fl" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#6b7280"/>
+    </marker>
+  </defs>
+  <!-- Thought -->
+  <rect x="30" y="30" width="200" height="62" rx="10" fill="#ede9fe" stroke="#c4b5fd"/>
+  <text x="130" y="56" text-anchor="middle" font-weight="700" fill="#5b21b6" font-size="15">1. Thought</text>
+  <text x="130" y="76" text-anchor="middle" fill="#6b21a8" font-size="12">el LLM razona qué hacer</text>
+  <!-- Action -->
+  <rect x="300" y="30" width="200" height="62" rx="10" fill="#ede9fe" stroke="#c4b5fd"/>
+  <text x="400" y="56" text-anchor="middle" font-weight="700" fill="#5b21b6" font-size="15">2. Action + Input</text>
+  <text x="400" y="76" text-anchor="middle" fill="#6b21a8" font-size="12">elige una tool y su entrada</text>
+  <!-- Observation -->
+  <rect x="570" y="30" width="200" height="62" rx="10" fill="#dcfce7" stroke="#86efac"/>
+  <text x="670" y="56" text-anchor="middle" font-weight="700" fill="#166534" font-size="15">3. Observation</text>
+  <text x="670" y="76" text-anchor="middle" fill="#15803d" font-size="12">resultado de la tool</text>
+  <!-- Final Answer -->
+  <rect x="570" y="165" width="200" height="54" rx="10" fill="#dbeafe" stroke="#93c5fd"/>
+  <text x="670" y="190" text-anchor="middle" font-weight="700" fill="#1e40af" font-size="15">Final Answer</text>
+  <text x="670" y="208" text-anchor="middle" fill="#1d4ed8" font-size="12">respuesta al usuario</text>
+  <!-- flechas del ciclo -->
+  <line x1="230" y1="61" x2="292" y2="61" stroke="#6b7280" stroke-width="2" marker-end="url(#fl)"/>
+  <line x1="500" y1="61" x2="562" y2="61" stroke="#6b7280" stroke-width="2" marker-end="url(#fl)"/>
+  <text x="365" y="24" text-anchor="middle" fill="#9ca3af" font-size="11">el executor ejecuta la tool</text>
+  <!-- loop-back: Observation -> Thought -->
+  <path d="M600,92 L600,140 L130,140 L130,94" fill="none" stroke="#6b7280"
+        stroke-width="2" marker-end="url(#fl)"/>
+  <text x="360" y="134" text-anchor="middle" fill="#6b7280" font-size="11">
+    si falta info: otro ciclo — la Observation vuelve al Thought</text>
+  <!-- salida a Final Answer -->
+  <line x1="670" y1="92" x2="670" y2="163" stroke="#2563eb" stroke-width="2" marker-end="url(#fl)"/>
+  <text x="682" y="130" text-anchor="start" fill="#2563eb" font-size="11">si ya tiene todo</text>
+</svg>
+"""
+
 
 # ---------------------------------------------------------------------------
 # Extraccion de datos de las corridas
@@ -153,6 +194,7 @@ def construir_html(root, hijos: list, proyecto: str) -> str:
     url = f"https://smith.langchain.com/o/-/projects/p/{root.session_id}/r/{root.id}"
 
     narrativa = explicacion_react(orden)
+    diagrama = DIAGRAMA_REACT
     filas = "\n".join(_fila_paso(i + 1, r) for i, r in enumerate(pasos))
 
     return f"""<!DOCTYPE html>
@@ -220,11 +262,16 @@ def construir_html(root, hijos: list, proyecto: str) -> str:
   <div class="card explica">
     <h2>El patron ReAct explicado con esta corrida</h2>
     <p><b>ReAct</b> (Reasoning + Acting) es la forma en que este agente resuelve
-    tareas. En vez de contestar de una, entra en un <b>bucle</b>: piensa, actua con
-    una herramienta, observa el resultado, y usa esa observacion para pensar el
-    siguiente paso. Se repite hasta que puede dar la respuesta final.</p>
+    tareas. Un LLM "pelado" contesta de una sola vez con lo que sabe; un agente
+    ReAct, en cambio, entra en un <b>bucle</b>: <b>piensa</b> qué le falta,
+    <b>actua</b> usando una herramienta, <b>observa</b> el resultado, y usa esa
+    observacion para pensar el paso siguiente. Repite ese ciclo hasta reunir todo lo
+    necesario y recien ahi da la respuesta final. Así el modelo puede consultar
+    datos, hacer cuentas o ejecutar acciones en vez de depender solo de su memoria.</p>
 
     <div class="loop">Thought (pienso) → Action (uso una tool) → Observation (miro el resultado) → … → Final Answer</div>
+
+    {diagrama}
 
     <p>Tres ideas clave para entenderlo:</p>
     <ul>
