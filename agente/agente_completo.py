@@ -189,6 +189,11 @@ Reglas:
 - Si hay una cuenta, usá 'calculadora'. No calcules de memoria.
 - Si el usuario pide recordar algo, usá 'guardar_nota'; para repasarlas, 'listar_notas'.
 - Si ya sabés la respuesta sin herramientas, pasá directo a 'Final Answer'.
+- Si la pregunta tiene VARIAS partes o pide VARIAS tareas (p. ej. "buscá X, calculá Y y
+  guardá Z"), resolvé cada parte con su propia Action, UNA POR VEZ. No pases a
+  'Final Answer' hasta haber cubierto todas las partes pedidas.
+- Nunca repitas la misma Action con el mismo Action Input si ya tenés esa Observation:
+  pasá a la siguiente parte pendiente o a 'Final Answer'.
 
 Historial de la conversacion (puede estar vacio):
 {chat_history}

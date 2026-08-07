@@ -44,5 +44,5 @@ if __name__ == "__main__":
     print(f"--- Respuesta simple ({pregunta!r}) ---")
     print(chat_simple(pregunta))
 
-    print("\n--- Respuesta en streaming ---")
-    chat_streaming(pregunta)
+    #print("\n--- Respuesta en streaming ---")
+    #chat_streaming(pregunta)
