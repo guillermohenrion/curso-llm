@@ -82,6 +82,24 @@ modelo se desvía del formato.
 Cada corrida se etiqueta con `run_name`, `tags` y `metadata` (el número de turno),
 para poder filtrarlas en LangSmith.
 
+### Consultar y reportar corridas (solo lectura)
+
+Dos scripts leen las corridas registradas en LangSmith (no modifican nada):
+
+```powershell
+# Resumen en consola de las últimas corridas de un proyecto
+python consultar_langsmith.py 10 curso-llm-rag_agente_react
+
+# Reporte HTML analizando la ÚLTIMA corrida (ciclo ReAct paso a paso)
+python reporte_langsmith.py curso-llm-rag_agente_react
+```
+
+`reporte_langsmith.py` reconstruye el árbol de la traza y genera
+`reporte_langsmith.html` con: resumen (pregunta, respuesta, estado, duración,
+tokens), análisis ReAct (iteraciones y tools usadas) y la línea de tiempo de cada
+paso `llm` (Thought → Action) y `tool` (Observation). El HTML es un artefacto local
+(está en `.gitignore`). Si no pasás el proyecto, usa `LANGSMITH_PROJECT` del `.env`.
+
 ## Cómo funciona
 
 1. **Tools** — se arma la lista de herramientas (RAG + calculadora + fecha + notas).

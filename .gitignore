@@ -22,6 +22,9 @@ models/
 # Config local de editores
 .obsidian/
 
+# Reporte HTML generado desde LangSmith (artefacto local, puede tener datos de la corrida)
+agente/reporte_langsmith.html
+
 # RAG sobre PDFs: indice persistente y documentos del usuario
 chroma_pdf/
 chroma_pdf_lc/

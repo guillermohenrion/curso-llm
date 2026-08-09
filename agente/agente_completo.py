@@ -55,11 +55,19 @@ try:
 except Exception:
     pass
 
-# Cargamos variables de entorno desde .env (busca en esta carpeta y en la raiz).
+# Cargamos variables de entorno desde .env. Hacemos dos llamadas a proposito:
+#   1) load_dotenv()             -> busca un .env en el directorio actual (cwd).
+#   2) load_dotenv(dotenv_path=) -> busca el .env que esta AL LADO de este archivo,
+#                                   asi funciona aunque lo corras desde otra carpeta.
+# load_dotenv NO pisa variables ya definidas en el entorno del sistema.
 load_dotenv()
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
-# Activamos el tracing de LangSmith si hay API key (LangChain lo envia solo).
+# Tracing de LangSmith: LangChain envia las trazas SOLO si estas variables de
+# entorno estan seteadas. No hay que instrumentar el codigo a mano; con tener
+# LANGSMITH_API_KEY alcanza. Aca la damos por activada (LANGSMITH_TRACING=true)
+# si hay API key, y fijamos un nombre de proyecto por defecto (donde se agrupan
+# las corridas en la UI de LangSmith). setdefault no pisa el valor si ya venia del .env.
 if os.getenv("LANGSMITH_API_KEY") and not os.getenv("LANGSMITH_TRACING"):
     os.environ["LANGSMITH_TRACING"] = "true"
 os.environ.setdefault("LANGSMITH_PROJECT", "curso-llm-agente")
@@ -83,9 +91,9 @@ def check_langsmith() -> bool:
         print(f"[aviso] No se pudo inicializar el cliente de LangSmith: {e}\n")
         return False
 
-CHAT_MODEL = "gemma3"
-EMBED_MODEL = "nomic-embed-text"
-MAX_TURNOS = 5  # cuantos turnos de la charla recordamos (ventana de memoria)
+CHAT_MODEL = "gemma3"            # LLM que razona y redacta (el "cerebro" del agente)
+EMBED_MODEL = "nomic-embed-text"  # modelo que convierte texto en vectores (solo para el RAG)
+MAX_TURNOS = 5  # cuantos turnos de la charla recordamos (ventana de memoria; ver formatear_historial)
 
 # --- Corpus de conocimiento del curso (para la tool de RAG) ---
 DOCUMENTOS = [
@@ -112,13 +120,20 @@ _NOTAS: list[str] = []
 # ---------------------------------------------------------------------------
 def build_retriever_tool():
     """Indexa el corpus en Chroma (en memoria) y lo expone como tool de RAG."""
+    # 1) Texto plano -> Document de LangChain (formato que espera Chroma).
     docs = [Document(page_content=t, metadata={"id": f"doc{i}"})
             for i, t in enumerate(DOCUMENTOS)]
+    # 2) from_documents embebe cada texto (con OllamaEmbeddings) y arma el indice
+    #    vectorial. Es EN MEMORIA: se reconstruye en cada corrida (suficiente para clase).
     vs = Chroma.from_documents(
         docs, embedding=OllamaEmbeddings(model=EMBED_MODEL),
         collection_name="agente_rag",
     )
+    # 3) as_retriever con k=2 -> ante una consulta, devuelve los 2 chunks mas similares.
     retriever = vs.as_retriever(search_kwargs={"k": 2})
+    # 4) create_retriever_tool envuelve el retriever como una TOOL que el agente puede
+    #    elegir. OJO: el 'name' y sobre todo la 'description' son lo que el LLM lee para
+    #    decidir cuando usar esta tool -> conviene que sean claros y especificos.
     return create_retriever_tool(
         retriever,
         name="buscar_conocimiento",
@@ -130,25 +145,37 @@ def build_retriever_tool():
     )
 
 
+# El decorador @tool convierte una funcion en una tool de LangChain: usa el NOMBRE
+# de la funcion como nombre de la tool y su DOCSTRING como descripcion (lo que el
+# agente lee para decidir si la usa). En ReAct, la tool recibe UN solo string
+# (el "Action Input"), por eso todas toman un unico parametro de texto.
 @tool
 def calculadora(expresion: str) -> str:
     """Evalua una expresion aritmetica simple, por ejemplo '12 * (3 + 4)'."""
+    # Sandbox minimo: nos quedamos SOLO con caracteres de aritmetica, para no
+    # permitir que un 'eval' ejecute codigo arbitrario que venga en el texto.
     permitido = set("0123456789+-*/(). ")
     expr = "".join(ch for ch in expresion if ch in permitido).strip()
     if not expr:
         return "No encontre una expresion aritmetica valida."
     try:
+        # __builtins__ vacio -> se deshabilitan funciones como open/import dentro del eval.
         return str(eval(expr, {"__builtins__": {}}, {}))  # noqa: S307
     except Exception as e:  # noqa: BLE001
         return f"Error al evaluar '{expr}': {e}"
 
 
+# El parametro '_' existe solo porque el formato ReAct siempre pasa un Action Input,
+# aunque esta tool no necesite entrada. Lo ignoramos.
 @tool
 def fecha_hoy(_: str = "") -> str:
     """Devuelve la fecha de hoy en formato YYYY-MM-DD."""
     return _dt.date.today().isoformat()
 
 
+# guardar_nota + listar_notas comparten la lista _NOTAS (estado en memoria del
+# proceso): muestran como un agente puede ACUMULAR informacion entre turnos y
+# consultarla despues. Al cerrar el programa, las notas se pierden.
 @tool
 def guardar_nota(texto: str) -> str:
     """Guarda una nota para recordarla mas tarde. Recibe el texto de la nota."""
@@ -167,6 +194,16 @@ def listar_notas(_: str = "") -> str:
 # ---------------------------------------------------------------------------
 # Prompt ReAct (con historial de conversacion)
 # ---------------------------------------------------------------------------
+# Este prompt define el "protocolo" que sigue el agente. Los {placeholders} los
+# rellena LangChain automaticamente en cada vuelta del bucle:
+#   {tools}            -> nombre + descripcion de cada tool disponible
+#   {tool_names}       -> lista de nombres validos para la linea 'Action'
+#   {chat_history}     -> historial de la conversacion (lo armamos nosotros; ver main)
+#   {input}            -> la pregunta actual del usuario
+#   {agent_scratchpad} -> el borrador de Thought/Action/Observation de ESTE turno,
+#                         que el executor va acumulando vuelta a vuelta
+# El modelo NO ejecuta tools: solo escribe texto siguiendo el formato; el executor
+# parsea 'Action'/'Action Input', corre la tool y pega el resultado como 'Observation'.
 REACT_PROMPT = PromptTemplate.from_template(
     """Sos un asistente util del curso de LLMs. Respondé en español.
 Tenés acceso a estas herramientas:
@@ -207,7 +244,9 @@ Thought:{agent_scratchpad}"""
 
 def build_agent() -> AgentExecutor:
     """Arma el agente ReAct: LLM + tools + prompt, envuelto en un executor."""
+    # temperature=0.0 -> respuestas mas deterministas (util para que respete el formato ReAct).
     llm = ChatOllama(model=CHAT_MODEL, temperature=0.0)
+    # 5 tools: es la cantidad recomendada (pocas tools = el agente se confunde menos).
     tools = [
         build_retriever_tool(),
         calculadora,
@@ -215,13 +254,15 @@ def build_agent() -> AgentExecutor:
         guardar_nota,
         listar_notas,
     ]
+    # create_react_agent une LLM + tools + prompt en un agente que "habla" en formato ReAct.
     agent = create_react_agent(llm, tools, REACT_PROMPT)
+    # El AgentExecutor es quien corre el bucle de verdad (Thought->Action->Observation).
     return AgentExecutor(
         agent=agent,
         tools=tools,
-        verbose=True,                # muestra el razonamiento paso a paso
-        handle_parsing_errors=True,  # si el LLM no respeta el formato, reintenta
-        max_iterations=6,            # limite de vueltas, evita loops infinitos
+        verbose=True,                # imprime cada paso del razonamiento en la consola
+        handle_parsing_errors=True,  # si el LLM no respeta el formato, le avisa y reintenta (no crashea)
+        max_iterations=6,            # tope de vueltas del bucle: evita loops infinitos
     )
 
 
@@ -229,6 +270,8 @@ def formatear_historial(historial: list[tuple[str, str]]) -> str:
     """Convierte los ultimos turnos (humano, asistente) en texto para el prompt."""
     if not historial:
         return "(sin historial todavia)"
+    # historial[-MAX_TURNOS:] -> ventana deslizante: solo los ultimos N turnos, para
+    # que el prompt no crezca sin limite (mas historial = mas tokens = mas lento/caro).
     lineas = []
     for humano, ia in historial[-MAX_TURNOS:]:
         lineas.append(f"Usuario: {humano}")
@@ -248,12 +291,14 @@ def main() -> None:
             "tags": ["curso-llm", "agente", "react"],
             "metadata": {"turno": len(historial) + 1},
         }
+        # invoke dispara el bucle ReAct completo. Le pasamos la pregunta y el historial
+        # ya formateado (esos dos {placeholders} son los que faltaban en REACT_PROMPT).
         salida = executor.invoke(
             {"input": pregunta, "chat_history": formatear_historial(historial)},
             config=config,
         )
         respuesta = salida["output"]
-        historial.append((pregunta, respuesta))  # se suma a la memoria
+        historial.append((pregunta, respuesta))  # se suma a la memoria para el proximo turno
         if tracing_on:
             print(f"\n[LangSmith] Traza registrada en https://smith.langchain.com "
                   f"(proyecto: {os.getenv('LANGSMITH_PROJECT')})")
