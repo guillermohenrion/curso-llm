@@ -1,0 +1,16 @@
+# Dependencias para el servidor MCP de agentes locales (mcp_server_agentes.py),
+# que Hermes consume para orquestar. Hermes en si se instala aparte (ver README.md).
+#
+# Requiere ademas:
+#   - Ollama con el modelo de chat:  ollama pull gemma3
+#
+# Instalar con:  pip install -r requirements-hermes.txt
+# Probar el servidor solo (sin Hermes):  mcp dev mcp_server_agentes.py
+
+# IMPORTANTE: fijamos mcp<2.0 a proposito, mismo motivo que en
+# RAG/mcp_jira/requirements-mcp-jira.txt: mcp 2.0.x reestructuro su API interna
+# (server incluido) y rompe este ejemplo si se instala sin el pin.
+mcp[cli]<2.0
+langchain-core>=0.3,<0.4
+langchain-ollama>=0.2
+ollama>=0.4.0

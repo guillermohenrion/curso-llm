@@ -1,0 +1,15 @@
+# Dependencias para el ejemplo de orquestacion con Langflow.
+#
+# IMPORTANTE: instalar en un venv APARTE del resto del curso (ver README.md).
+# Langflow fija sus propias versiones de langchain-core/pydantic y puede chocar
+# con las que usan orquestacion/ y RAG/mcp_jira/.
+#
+# Requiere ademas:
+#   - Ollama con el modelo de chat:  ollama pull gemma3
+#
+# Instalar con:  pip install -r requirements-langflow.txt
+# Correr Langflow con:  langflow run
+
+langflow>=1.1
+requests>=2.31
+python-dotenv>=1.0
