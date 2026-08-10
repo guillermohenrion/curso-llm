@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multiagente con LangGraph — cómo funciona</title>
+<style>
+
+  :root{
+    --bg:#f2f3ef;
+    --surface:#fdfdfb;
+    --surface-2:#eaece6;
+    --ink:#1b2320;
+    --ink-soft:#4b5650;
+    --line:#d8dbd2;
+    --amber:#b5650a;
+    --amber-soft:#f4e3c8;
+    --teal:#0d6d63;
+    --teal-soft:#d9ece7;
+    --stop:#a6321f;
+    --stop-soft:#f4dcd6;
+    --code-bg:#e9ebe3;
+    --shadow: 0 1px 0 rgba(27,35,32,.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141a17;
+      --surface:#1b2320;
+      --surface-2:#212b26;
+      --ink:#eef1ec;
+      --ink-soft:#a9b3ac;
+      --line:#2e3a34;
+      --amber:#e0a856;
+      --amber-soft:#3a2f18;
+      --teal:#5fc9ba;
+      --teal-soft:#173330;
+      --stop:#e08672;
+      --stop-soft:#3a201b;
+      --code-bg:#20281f;
+      --shadow: 0 1px 0 rgba(0,0,0,.2);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141a17;
+    --surface:#1b2320;
+    --surface-2:#212b26;
+    --ink:#eef1ec;
+    --ink-soft:#a9b3ac;
+    --line:#2e3a34;
+    --amber:#e0a856;
+    --amber-soft:#3a2f18;
+    --teal:#5fc9ba;
+    --teal-soft:#173330;
+    --stop:#e08672;
+    --stop-soft:#3a201b;
+    --code-bg:#20281f;
+    --shadow: 0 1px 0 rgba(0,0,0,.2);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Segoe UI","Noto Sans",system-ui,sans-serif;
+    font-size:17px;
+    line-height:1.65;
+  }
+  .page{max-width:860px;margin:0 auto;padding:0 24px 80px}
+
+  h1,h2,h3{
+    font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;
+    font-weight:700;
+    letter-spacing:.01em;
+    text-wrap:balance;
+    color:var(--ink);
+    margin:0;
+  }
+  h2{font-size:22px;margin-bottom:6px}
+  h3{font-size:16px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:10px}
+  p{margin:0 0 14px;max-width:66ch}
+  strong{color:var(--ink);font-weight:700}
+  code{
+    font-family:ui-monospace,Consolas,"Cascadia Code",monospace;
+    font-size:.86em;
+    background:var(--code-bg);
+    padding:1px 6px;
+    border-radius:4px;
+  }
+
+  header.top{
+    padding:44px 0 30px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:38px;
+  }
+  .eyebrow{
+    font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-soft);display:inline-block}
+  header.top h1{font-size:38px;line-height:1.1;max-width:16ch}
+  header.top .sub{color:var(--ink-soft);max-width:58ch;margin-top:14px;font-size:16px}
+
+  .legend{
+    display:flex;flex-wrap:wrap;gap:18px;
+    margin-top:22px;
+    padding-top:18px;
+    border-top:1px dashed var(--line);
+  }
+  .legend .item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft)}
+  .legend .sw{width:14px;height:14px;border-radius:4px;flex:none}
+  .sw.amber{background:var(--amber)}
+  .sw.teal{background:var(--teal)}
+  .sw.stop{background:var(--stop)}
+  .sw.state{background:var(--ink-soft)}
+
+  section{margin-bottom:52px}
+  section > h3{margin-top:0}
+  section > h2{margin-bottom:10px}
+
+  figure{margin:22px 0 8px;padding:0}
+  figure svg{width:100%;height:auto;display:block}
+  figcaption{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-top:10px;
+    max-width:62ch;
+  }
+  .fig-wrap{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px 18px 14px;
+    box-shadow:var(--shadow);
+    overflow-x:auto;
+  }
+
+  ol.steps{
+    list-style:none;
+    margin:20px 0 0;
+    padding:0;
+    counter-reset:step;
+    border-left:2px solid var(--line);
+    margin-left:6px;
+  }
+  ol.steps li{
+    counter-increment:step;
+    position:relative;
+    padding:2px 0 26px 26px;
+  }
+  ol.steps li::before{
+    content:counter(step);
+    position:absolute;
+    left:-13px;
+    top:0;
+    width:24px;height:24px;
+    border-radius:50%;
+    background:var(--surface);
+    border:2px solid var(--teal);
+    color:var(--teal);
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-weight:700;
+    font-size:12px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  ol.steps li:last-child::before{border-color:var(--stop);color:var(--stop)}
+  ol.steps .lbl{
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-weight:700;
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink);
+    display:block;
+    margin-bottom:3px;
+  }
+  ol.steps p{margin:0;font-size:15px}
+
+  table.api{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+    font-size:14px;
+  }
+  table.api th{
+    text-align:left;
+    background:var(--surface-2);
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+    padding:10px 14px;
+    font-weight:700;
+  }
+  table.api td{
+    padding:10px 14px;
+    border-top:1px solid var(--line);
+    vertical-align:top;
+  }
+  table.api td:first-child{white-space:nowrap;font-weight:600}
+  .api-wrap{overflow-x:auto}
+
+  .callout{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-left:4px solid var(--teal);
+    border-radius:8px;
+    padding:16px 18px;
+    margin:18px 0;
+  }
+  .callout p:last-child{margin-bottom:0}
+  .callout.amber{border-left-color:var(--amber)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{
+    font-family:ui-monospace,Consolas,monospace;
+    font-size:12.5px;
+    background:var(--code-bg);
+    border:1px solid var(--line);
+    padding:5px 10px;
+    border-radius:6px;
+    color:var(--ink-soft);
+  }
+
+  footer{
+    border-top:1px solid var(--line);
+    margin-top:60px;
+    padding-top:20px;
+    color:var(--ink-soft);
+    font-size:13px;
+  }
+
+  @media (max-width:600px){
+    header.top h1{font-size:29px}
+    body{font-size:16px}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <div class="eyebrow"><span class="dot"></span>orquestacion / multiagente_langgraph.py</div>
+    <h1>Multiagente con LangGraph: cómo funciona</h1>
+    <p class="sub">Un solo LLM contesta una vez con lo que sabe. LangGraph permite algo distinto:
+    modelar la conversación como un <strong>grafo de estados</strong>, donde un supervisor deriva
+    cada pregunta a un agente especializado. Esta explicación usa el grafo real que ya corre en
+    este repo.</p>
+    <div class="legend">
+      <span class="item"><span class="sw amber"></span>decisión / ruteo</span>
+      <span class="item"><span class="sw teal"></span>ejecución de un agente</span>
+      <span class="item"><span class="sw stop"></span>fin del grafo</span>
+      <span class="item"><span class="sw state"></span>estado compartido</span>
+    </div>
+  </header>
+
+  <section id="por-que">
+    <h3>El problema</h3>
+    <h2>¿Por qué no un solo agente que haga todo?</h2>
+    <p>Se puede meter todo en un único <em>system prompt</em>: "resolvé cálculos, traducí textos
+    y explicá conceptos". Funciona hasta que el prompt crece, las instrucciones de una tarea
+    contaminan a las otras, y no hay forma de darle a la parte matemática una herramienta propia
+    sin que el resto del prompt se vuelva ruido. La alternativa es <strong>partir el problema</strong>:
+    varios agentes chicos y enfocados, más un supervisor liviano que solo decide a quién le toca.</p>
+
+    <figure>
+      <div class="fig-wrap">
+      <svg viewBox="0 0 860 300" role="img" aria-label="Comparación: un agente único con un system prompt sobrecargado a la izquierda, versus un supervisor liviano que deriva a tres agentes especializados a la derecha">
+        <defs>
+          <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="currentColor" opacity=".55"/>
+          </marker>
+        </defs>
+        <text x="150" y="26" text-anchor="middle" font-size="12" letter-spacing=".06em" fill="currentColor" opacity=".6" font-family="Bahnschrift, sans-serif">UN AGENTE PARA TODO</text>
+        <rect x="40" y="42" width="220" height="200" rx="10" fill="none" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5"/>
+        <text x="150" y="66" text-anchor="middle" font-size="12.5" fill="currentColor" opacity=".85" font-weight="700">system prompt único</text>
+        <rect x="58" y="82" width="184" height="30" rx="6" fill="var(--amber-soft)"/>
+        <text x="150" y="101" text-anchor="middle" font-size="11.5" fill="var(--amber)">resolvé cálculos…</text>
+        <rect x="58" y="120" width="184" height="30" rx="6" fill="var(--amber-soft)"/>
+        <text x="150" y="139" text-anchor="middle" font-size="11.5" fill="var(--amber)">traducí textos…</text>
+        <rect x="58" y="158" width="184" height="30" rx="6" fill="var(--amber-soft)"/>
+        <text x="150" y="177" text-anchor="middle" font-size="11.5" fill="var(--amber)">explicá conceptos…</text>
+        <polygon points="150,196 158,212 142,212" fill="var(--stop)"/>
+        <text x="150" y="228" text-anchor="middle" font-size="11" fill="var(--stop)">reglas mezcladas,</text>
+        <text x="150" y="240" text-anchor="middle" font-size="11" fill="var(--stop)">difícil de extender</text>
+
+        <line x1="278" y1="142" x2="330" y2="142" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5" marker-end="url(#a1)"/>
+        <text x="304" y="130" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".55">se separa</text>
+
+        <text x="590" y="26" text-anchor="middle" font-size="12" letter-spacing=".06em" fill="currentColor" opacity=".6" font-family="Bahnschrift, sans-serif">SUPERVISOR + ESPECIALISTAS</text>
+        <rect x="530" y="50" width="120" height="42" rx="8" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.5"/>
+        <text x="590" y="76" text-anchor="middle" font-size="12.5" fill="var(--amber)" font-weight="700">supervisor</text>
+
+        <line x1="560" y1="92" x2="420" y2="150" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a1)"/>
+        <line x1="590" y1="92" x2="590" y2="150" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a1)"/>
+        <line x1="620" y1="92" x2="760" y2="150" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a1)"/>
+
+        <rect x="355" y="152" width="130" height="42" rx="8" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="420" y="178" text-anchor="middle" font-size="12" fill="var(--teal)" font-weight="700">matemático</text>
+        <rect x="525" y="152" width="130" height="42" rx="8" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="590" y="178" text-anchor="middle" font-size="12" fill="var(--teal)" font-weight="700">traductor</text>
+        <rect x="695" y="152" width="130" height="42" rx="8" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="760" y="178" text-anchor="middle" font-size="12" fill="var(--teal)" font-weight="700">explicador</text>
+        <text x="590" y="222" text-anchor="middle" font-size="11" fill="currentColor" opacity=".55">cada uno con su propio prompt (y, si hace falta, sus propias tools)</text>
+      </svg>
+      </div>
+      <figcaption>Un prompt único mezcla reglas de tareas distintas y no puede darle una
+      herramienta solo a una de ellas. Separar en supervisor + agentes especializados evita
+      esa mezcla: cada nodo tiene un rol, un prompt y capacidades propias.</figcaption>
+    </figure>
+  </section>
+
+  <section id="grafo">
+    <h3>El modelo</h3>
+    <h2>Un grafo de estados: nodos, aristas y estado</h2>
+    <p>LangGraph modela la orquestación con tres piezas. Un <strong>nodo</strong> es una función
+    de Python que recibe el estado actual y devuelve los campos que quiere actualizar. Una
+    <strong>arista</strong> conecta un nodo con el siguiente; puede ser fija o
+    <strong>condicional</strong> (una función decide, en tiempo de ejecución, a qué nodo ir). Y el
+    <strong>estado</strong> es un diccionario compartido —en este caso un <code>TypedDict</code>
+    llamado <code>Estado</code>, con <code>pregunta</code>, <code>ruta</code> y
+    <code>respuesta</code>— que todos los nodos leen y van completando a medida que el grafo avanza.</p>
+
+    <figure>
+      <div class="fig-wrap">
+      <svg viewBox="0 0 820 340" role="img" aria-label="Grafo: START entra al nodo supervisor, que mediante una arista condicional deriva a uno de tres agentes (matemático, traductor, explicador), y cada agente cierra el grafo en END">
+        <defs>
+          <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="currentColor"/>
+          </marker>
+          <marker id="a2amber" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="var(--amber)"/>
+          </marker>
+          <marker id="a2stop" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="var(--stop)"/>
+          </marker>
+        </defs>
+
+        <rect x="20" y="150" width="72" height="34" rx="17" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="56" y="171" text-anchor="middle" font-size="12" fill="currentColor" font-weight="700">START</text>
+        <line x1="92" y1="167" x2="150" y2="167" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2)"/>
+
+        <rect x="150" y="140" width="150" height="54" rx="10" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.8"/>
+        <text x="225" y="163" text-anchor="middle" font-size="13" fill="var(--amber)" font-weight="700">supervisor</text>
+        <text x="225" y="180" text-anchor="middle" font-size="10.5" fill="var(--amber)">el LLM clasifica la pregunta</text>
+
+        <path d="M300,150 C 380,90 430,90 480,110" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a2amber)"/>
+        <path d="M300,167 L 480,167" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a2amber)"/>
+        <path d="M300,184 C 380,244 430,244 480,224" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a2amber)"/>
+        <text x="390" y="82" text-anchor="middle" font-size="10.5" fill="var(--amber)">add_conditional_edges</text>
+
+        <rect x="480" y="86" width="160" height="46" rx="9" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="560" y="114" text-anchor="middle" font-size="12.5" fill="var(--teal)" font-weight="700">matemático</text>
+
+        <rect x="480" y="144" width="160" height="46" rx="9" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="560" y="172" text-anchor="middle" font-size="12.5" fill="var(--teal)" font-weight="700">traductor</text>
+
+        <rect x="480" y="202" width="160" height="46" rx="9" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="560" y="230" text-anchor="middle" font-size="12.5" fill="var(--teal)" font-weight="700">explicador</text>
+
+        <path d="M640,109 C 690,109 700,150 730,158" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2stop)"/>
+        <path d="M640,167 L 730,167" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2stop)"/>
+        <path d="M640,225 C 690,225 700,184 730,176" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2stop)"/>
+
+        <rect x="730" y="147" width="70" height="40" rx="20" fill="var(--stop-soft)" stroke="var(--stop)" stroke-width="1.5"/>
+        <text x="765" y="171" text-anchor="middle" font-size="12" fill="var(--stop)" font-weight="700">END</text>
+
+        <g transform="translate(150,290)">
+          <line x1="0" y1="0" x2="30" y2="0" stroke="currentColor" stroke-width="1.5"/>
+          <text x="38" y="4" font-size="11" fill="currentColor" opacity=".65">arista fija (add_edge)</text>
+          <line x1="230" y1="0" x2="260" y2="0" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="268" y="4" font-size="11" fill="currentColor" opacity=".65">arista condicional — la decide _elegir_ruta(estado)</text>
+        </g>
+      </svg>
+      </div>
+      <figcaption>El grafo que corre en <code>construir_grafo()</code>: <code>START → supervisor</code>
+      es fija; <code>supervisor → agente</code> es condicional (la resuelve <code>_elegir_ruta</code>
+      leyendo <code>estado["ruta"]</code>); y cada agente cierra con una arista fija a <code>END</code>.</figcaption>
+    </figure>
+  </section>
+
+  <section id="estado">
+    <h3>El dato que viaja</h3>
+    <h2>El estado se va completando en cada nodo</h2>
+    <p>Nada se pasa "por parámetro" de un nodo a otro: todos comparten el mismo diccionario de
+    estado. Cada nodo recibe la versión actual, hace su trabajo, y devuelve solo los campos que
+    modifica; LangGraph mezcla ese resultado con el estado existente antes de pasarlo al
+    siguiente nodo.</p>
+
+    <figure>
+      <div class="fig-wrap">
+      <svg viewBox="0 0 820 210" role="img" aria-label="El diccionario Estado gana un campo en cada nodo: arranca solo con pregunta, el nodo supervisor le agrega ruta, y el agente elegido le agrega respuesta">
+        <defs>
+          <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="currentColor" opacity=".55"/>
+          </marker>
+        </defs>
+
+        <rect x="10" y="20" width="220" height="150" rx="10" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.5"/>
+        <text x="120" y="44" text-anchor="middle" font-size="11.5" font-family="Bahnschrift, sans-serif" letter-spacing=".04em" fill="currentColor" opacity=".6">ESTADO INICIAL</text>
+        <text x="26" y="72" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor">pregunta:</text>
+        <text x="26" y="90" font-size="11.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".75">"Cuanto es 12*(3+4)?"</text>
+        <text x="26" y="116" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".3">ruta: ""</text>
+        <text x="26" y="138" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".3">respuesta: ""</text>
+
+        <line x1="234" y1="95" x2="284" y2="95" stroke="currentColor" opacity=".5" stroke-width="1.5" marker-end="url(#a3)"/>
+        <text x="259" y="83" text-anchor="middle" font-size="10.5" fill="var(--amber)">supervisor()</text>
+
+        <rect x="288" y="20" width="230" height="150" rx="10" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.5"/>
+        <text x="403" y="44" text-anchor="middle" font-size="11.5" font-family="Bahnschrift, sans-serif" letter-spacing=".04em" fill="var(--amber)">TRAS EL SUPERVISOR</text>
+        <text x="304" y="72" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".75">pregunta: "…"</text>
+        <text x="304" y="98" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="var(--amber)" font-weight="700">ruta: "matematico"</text>
+        <text x="304" y="122" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".3">respuesta: ""</text>
+
+        <line x1="522" y1="95" x2="572" y2="95" stroke="currentColor" opacity=".5" stroke-width="1.5" marker-end="url(#a3)"/>
+        <text x="547" y="83" text-anchor="middle" font-size="10.5" fill="var(--teal)">matematico()</text>
+
+        <rect x="576" y="20" width="234" height="150" rx="10" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="693" y="44" text-anchor="middle" font-size="11.5" font-family="Bahnschrift, sans-serif" letter-spacing=".04em" fill="var(--teal)">TRAS EL AGENTE — FINAL</text>
+        <text x="592" y="72" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".75">pregunta: "…"</text>
+        <text x="592" y="96" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".75">ruta: "matematico"</text>
+        <text x="592" y="122" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="var(--teal)" font-weight="700">respuesta: "El resultado…"</text>
+      </svg>
+      </div>
+      <figcaption>El campo que un nodo agrega queda visible para los nodos siguientes (y para
+      el llamador, al final). <code>supervisor()</code> solo toca <code>ruta</code>;
+      <code>matematico()</code> solo toca <code>respuesta</code> — ninguno pisa lo que ya
+      escribió el otro.</figcaption>
+    </figure>
+  </section>
+
+  <section id="corrida">
+    <h3>Trazado real</h3>
+    <h2>Una corrida paso a paso</h2>
+    <p>Con la pregunta <code>"Cuanto es 12 * (3 + 4)?"</code>, así se mueve la ejecución sobre
+    el grafo (ver <code>orquestacion/multiagente_langgraph.py</code>):</p>
+
+    <ol class="steps">
+      <li>
+        <span class="lbl">invoke()</span>
+        <p><code>app.invoke({"pregunta": ..., "ruta": "", "respuesta": ""})</code> entra por
+        <code>START</code> y pasa al primer nodo del grafo: <code>supervisor</code>.</p>
+      </li>
+      <li>
+        <span class="lbl">supervisor() clasifica</span>
+        <p>Le pide al LLM que devuelva una sola palabra clave. La respuesta se busca dentro de
+        <code>RUTAS_VALIDAS</code> con parseo tolerante; para esta pregunta da
+        <code>"matematico"</code>, que se guarda en <code>estado["ruta"]</code>.</p>
+      </li>
+      <li>
+        <span class="lbl">arista condicional</span>
+        <p><code>add_conditional_edges("supervisor", _elegir_ruta, {...})</code> llama a
+        <code>_elegir_ruta(estado)</code>, que simplemente devuelve <code>estado["ruta"]</code>.
+        LangGraph usa ese valor como nombre del próximo nodo: <code>matematico</code>.</p>
+      </li>
+      <li>
+        <span class="lbl">matematico() ejecuta</span>
+        <p>Primero intenta <code>_eval_seguro("12 * (3 + 4)")</code>, una evaluación aritmética
+        sandboxeada (sin acceso a builtins). Da <code>84</code>, así que <strong>ni siquiera
+        vuelve a llamar al LLM</strong> — el nodo devuelve la respuesta directo.</p>
+      </li>
+      <li>
+        <span class="lbl">arista fija → END</span>
+        <p><code>add_edge("matematico", END)</code> cierra el grafo. El estado final —con
+        <code>pregunta</code>, <code>ruta</code> y <code>respuesta</code> completos— es lo que
+        devuelve <code>invoke()</code>.</p>
+      </li>
+    </ol>
+
+    <div class="callout amber">
+      <p><strong>Dato del código:</strong> si la pregunta no tiene una expresión aritmética clara
+      (por ejemplo, "quién inventó la suma"), <code>_eval_seguro</code> devuelve <code>None</code>
+      y el nodo <code>matematico</code> cae a un segundo LLM.invoke() con un prompt distinto
+      ("resolvé paso a paso"). Cada agente puede tener su propia mezcla de herramienta + modelo,
+      sin afectar a los demás nodos.</p>
+    </div>
+  </section>
+
+  <section id="piezas">
+    <h3>Referencia</h3>
+    <h2>Piezas del API que arman el grafo</h2>
+    <div class="api-wrap">
+    <table class="api">
+      <thead><tr><th>Pieza</th><th>Qué hace</th></tr></thead>
+      <tbody>
+        <tr><td><code>StateGraph(Estado)</code></td><td>Crea el grafo, tipado con el <code>TypedDict</code> que define la forma del estado compartido.</td></tr>
+        <tr><td><code>add_node(nombre, fn)</code></td><td>Registra una función como nodo; recibe el estado y devuelve un <code>dict</code> con los campos que actualiza.</td></tr>
+        <tr><td><code>add_edge(a, b)</code></td><td>Arista fija: al terminar el nodo <code>a</code>, siempre sigue <code>b</code>. <code>START</code> y <code>END</code> son marcadores especiales de entrada y salida.</td></tr>
+        <tr><td><code>add_conditional_edges(a, fn, mapa)</code></td><td>Arista dinámica: tras <code>a</code>, se llama a <code>fn(estado)</code>; el string que devuelve se busca en <code>mapa</code> para elegir el próximo nodo.</td></tr>
+        <tr><td><code>.compile()</code></td><td>Valida el grafo y lo convierte en algo ejecutable (una <code>app</code>).</td></tr>
+        <tr><td><code>.invoke(estado_inicial)</code></td><td>Corre el grafo de punta a punta desde <code>START</code> hasta <code>END</code> y devuelve el estado final.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section id="extender">
+    <h3>Más allá de este ejemplo</h3>
+    <h2>Cómo se extiende el patrón</h2>
+    <p>Este grafo hace un solo salto: <code>supervisor → agente → END</code>. Es el caso más simple
+    para que se entienda el mecanismo, pero el mismo modelo —nodos, aristas, estado compartido—
+    escala a flujos más largos:</p>
+    <div class="callout">
+      <p><strong>Agentes que se llaman entre sí:</strong> un agente puede terminar en otro nodo en
+      vez de <code>END</code>, por ejemplo para pasarle el resultado a un segundo especialista.</p>
+      <p><strong>Nodo revisor:</strong> un nodo extra que valida la respuesta y, si no alcanza,
+      usa una arista condicional para volver a mandar el estado al mismo agente o a otro.</p>
+      <p style="margin-bottom:0"><strong>Memoria / checkpoints:</strong> LangGraph puede persistir
+      el estado entre llamadas (<code>checkpointer</code>), para que una conversación multi-turno
+      recuerde rutas y respuestas anteriores sin volver a empezar del <code>START</code>.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p style="margin-bottom:6px">Basado en el grafo real de este repo:</p>
+    <div class="chips">
+      <span class="chip">orquestacion/multiagente_langgraph.py</span>
+      <span class="chip">orquestacion/README.md</span>
+      <span class="chip">orquestacion/iniciar_multiagente_demo.ps1</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

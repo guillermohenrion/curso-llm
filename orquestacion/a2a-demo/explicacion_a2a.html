@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A2A entre agentes — cómo funciona</title>
+<style>
+
+  :root{
+    --bg:#f2f3ef;
+    --surface:#fdfdfb;
+    --surface-2:#eaece6;
+    --ink:#1b2320;
+    --ink-soft:#4b5650;
+    --line:#d8dbd2;
+    --amber:#b5650a;
+    --amber-soft:#f4e3c8;
+    --teal:#0d6d63;
+    --teal-soft:#d9ece7;
+    --stop:#a6321f;
+    --stop-soft:#f4dcd6;
+    --code-bg:#e9ebe3;
+    --shadow: 0 1px 0 rgba(27,35,32,.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141a17;
+      --surface:#1b2320;
+      --surface-2:#212b26;
+      --ink:#eef1ec;
+      --ink-soft:#a9b3ac;
+      --line:#2e3a34;
+      --amber:#e0a856;
+      --amber-soft:#3a2f18;
+      --teal:#5fc9ba;
+      --teal-soft:#173330;
+      --stop:#e08672;
+      --stop-soft:#3a201b;
+      --code-bg:#20281f;
+      --shadow: 0 1px 0 rgba(0,0,0,.2);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141a17;
+    --surface:#1b2320;
+    --surface-2:#212b26;
+    --ink:#eef1ec;
+    --ink-soft:#a9b3ac;
+    --line:#2e3a34;
+    --amber:#e0a856;
+    --amber-soft:#3a2f18;
+    --teal:#5fc9ba;
+    --teal-soft:#173330;
+    --stop:#e08672;
+    --stop-soft:#3a201b;
+    --code-bg:#20281f;
+    --shadow: 0 1px 0 rgba(0,0,0,.2);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Segoe UI","Noto Sans",system-ui,sans-serif;
+    font-size:17px;
+    line-height:1.65;
+  }
+  .page{max-width:860px;margin:0 auto;padding:0 24px 80px}
+
+  h1,h2,h3{
+    font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;
+    font-weight:700;
+    letter-spacing:.01em;
+    text-wrap:balance;
+    color:var(--ink);
+    margin:0;
+  }
+  h2{font-size:22px;margin-bottom:6px}
+  h3{font-size:16px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:10px}
+  p{margin:0 0 14px;max-width:66ch}
+  strong{color:var(--ink);font-weight:700}
+  code{
+    font-family:ui-monospace,Consolas,"Cascadia Code",monospace;
+    font-size:.86em;
+    background:var(--code-bg);
+    padding:1px 6px;
+    border-radius:4px;
+  }
+  pre{
+    font-family:ui-monospace,Consolas,"Cascadia Code",monospace;
+    font-size:12.5px;
+    line-height:1.55;
+    background:var(--code-bg);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:14px 16px;
+    overflow-x:auto;
+    margin:0 0 14px;
+  }
+  pre code{background:none;padding:0;font-size:1em}
+  .pre-lbl{
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-soft);
+    margin:0 0 6px;
+  }
+
+  header.top{
+    padding:44px 0 30px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:38px;
+  }
+  .eyebrow{
+    font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-soft);display:inline-block}
+  header.top h1{font-size:34px;line-height:1.1;max-width:20ch}
+  header.top .sub{color:var(--ink-soft);max-width:58ch;margin-top:14px;font-size:16px}
+
+  .legend{
+    display:flex;flex-wrap:wrap;gap:18px;
+    margin-top:22px;
+    padding-top:18px;
+    border-top:1px dashed var(--line);
+  }
+  .legend .item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft)}
+  .legend .sw{width:14px;height:14px;border-radius:4px;flex:none}
+  .sw.amber{background:var(--amber)}
+  .sw.teal{background:var(--teal)}
+  .sw.stop{background:var(--stop)}
+  .sw.state{background:var(--ink-soft)}
+
+  section{margin-bottom:52px}
+  section > h3{margin-top:0}
+  section > h2{margin-bottom:10px}
+
+  figure{margin:22px 0 8px;padding:0}
+  figure svg{width:100%;height:auto;display:block}
+  figcaption{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-top:10px;
+    max-width:62ch;
+  }
+  .fig-wrap{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px 18px 14px;
+    box-shadow:var(--shadow);
+    overflow-x:auto;
+  }
+
+  ol.steps{
+    list-style:none;
+    margin:20px 0 0;
+    padding:0;
+    counter-reset:step;
+    border-left:2px solid var(--line);
+    margin-left:6px;
+  }
+  ol.steps li{
+    counter-increment:step;
+    position:relative;
+    padding:2px 0 26px 26px;
+  }
+  ol.steps li::before{
+    content:counter(step);
+    position:absolute;
+    left:-13px;
+    top:0;
+    width:24px;height:24px;
+    border-radius:50%;
+    background:var(--surface);
+    border:2px solid var(--teal);
+    color:var(--teal);
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-weight:700;
+    font-size:12px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  ol.steps li:last-child::before{border-color:var(--stop);color:var(--stop)}
+  ol.steps .lbl{
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-weight:700;
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink);
+    display:block;
+    margin-bottom:3px;
+  }
+  ol.steps p{margin:0;font-size:15px}
+
+  table.api{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+    font-size:14px;
+  }
+  table.api th{
+    text-align:left;
+    background:var(--surface-2);
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+    padding:10px 14px;
+    font-weight:700;
+  }
+  table.api td{
+    padding:10px 14px;
+    border-top:1px solid var(--line);
+    vertical-align:top;
+  }
+  table.api td:first-child{white-space:nowrap;font-weight:600}
+  .api-wrap{overflow-x:auto}
+
+  .callout{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-left:4px solid var(--teal);
+    border-radius:8px;
+    padding:16px 18px;
+    margin:18px 0;
+  }
+  .callout p:last-child{margin-bottom:0}
+  .callout.amber{border-left-color:var(--amber)}
+  .callout.stop{border-left-color:var(--stop)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{
+    font-family:ui-monospace,Consolas,monospace;
+    font-size:12.5px;
+    background:var(--code-bg);
+    border:1px solid var(--line);
+    padding:5px 10px;
+    border-radius:6px;
+    color:var(--ink-soft);
+  }
+
+  footer{
+    border-top:1px solid var(--line);
+    margin-top:60px;
+    padding-top:20px;
+    color:var(--ink-soft);
+    font-size:13px;
+  }
+
+  @media (max-width:600px){
+    header.top h1{font-size:26px}
+    body{font-size:16px}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <div class="eyebrow"><span class="dot"></span>orquestacion / a2a-demo</div>
+    <h1>A2A: agentes que se hablan entre procesos distintos</h1>
+    <p class="sub">Los tres ejemplos anteriores viven todos <strong>adentro de un mismo proceso
+    Python</strong>. A2A (Agent2Agent) resuelve un problema distinto: cómo hacen dos agentes que
+    corren en procesos, máquinas o hasta frameworks diferentes para hablarse, sin que uno conozca
+    el código interno del otro. Acá va la versión más chica posible del protocolo, con la
+    librería estándar de Python.</p>
+    <div class="legend">
+      <span class="item"><span class="sw amber"></span>cliente</span>
+      <span class="item"><span class="sw teal"></span>agente remoto (servidor)</span>
+      <span class="item"><span class="sw state"></span>contrato (Agent Card / JSON)</span>
+      <span class="item"><span class="sw stop"></span>estado de la Task</span>
+    </div>
+  </header>
+
+  <section id="diferencia">
+    <h3>La diferencia real</h3>
+    <h2>No es "otro patrón de grafo" — es cruzar un proceso</h2>
+    <p>En <code>multiagente_langgraph.py</code> o el <code>generador_critico_langgraph.py</code>,
+    "supervisor" y "agente" son dos <em>funciones de Python en el mismo proceso</em>, que se pasan
+    un diccionario en memoria. En A2A, cada agente es un <strong>servicio HTTP aparte</strong>: no
+    hay memoria compartida, no hay import — todo lo que un agente sabe del otro es su URL y su
+    <em>Agent Card</em>. Por eso A2A no compite con LangGraph: se puede envolver un grafo entero
+    de LangGraph adentro de un servidor A2A y exponerlo hacia afuera como un agente más.</p>
+
+    <figure>
+      <div class="fig-wrap">
+      <svg viewBox="0 0 820 260" role="img" aria-label="Comparación: en LangGraph dos nodos son funciones dentro del mismo proceso que comparten un diccionario de estado en memoria; en A2A cada agente es un proceso HTTP separado y solo se comunican mandándose JSON por la red">
+        <defs>
+          <marker id="d1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="currentColor" opacity=".55"/>
+          </marker>
+        </defs>
+
+        <text x="180" y="26" text-anchor="middle" font-size="12" letter-spacing=".06em" fill="currentColor" opacity=".6" font-family="Bahnschrift, sans-serif">LANGGRAPH — UN PROCESO</text>
+        <rect x="30" y="42" width="300" height="160" rx="10" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <text x="180" y="62" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".55">proceso python</text>
+
+        <rect x="55" y="76" width="110" height="46" rx="8" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="110" y="104" text-anchor="middle" font-size="11.5" fill="var(--teal)" font-weight="700">nodo A</text>
+        <rect x="195" y="76" width="110" height="46" rx="8" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="250" y="104" text-anchor="middle" font-size="11.5" fill="var(--teal)" font-weight="700">nodo B</text>
+        <line x1="165" y1="99" x2="193" y2="99" stroke="currentColor" opacity=".5" stroke-width="1.5" marker-end="url(#d1)"/>
+        <text x="180" y="90" text-anchor="middle" font-size="9" fill="currentColor" opacity=".5">llamada</text>
+
+        <rect x="70" y="150" width="220" height="34" rx="7" fill="var(--surface)" stroke="var(--ink-soft)" stroke-width="1.5"/>
+        <text x="180" y="171" text-anchor="middle" font-size="10.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor">dict Estado (memoria compartida)</text>
+
+        <line x1="330" y1="122" x2="380" y2="122" stroke="currentColor" opacity=".4" stroke-width="1.5" marker-end="url(#d1)"/>
+
+        <text x="640" y="26" text-anchor="middle" font-size="12" letter-spacing=".06em" fill="currentColor" opacity=".6" font-family="Bahnschrift, sans-serif">A2A — DOS PROCESOS</text>
+        <rect x="420" y="60" width="180" height="90" rx="10" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <text x="510" y="80" text-anchor="middle" font-size="10.5" fill="var(--amber)">proceso cliente</text>
+        <rect x="440" y="92" width="140" height="40" rx="7" fill="var(--surface)" stroke="var(--amber)" stroke-width="1.5"/>
+        <text x="510" y="117" text-anchor="middle" font-size="11.5" fill="var(--amber)" font-weight="700">agente cliente</text>
+
+        <rect x="640" y="60" width="180" height="90" rx="10" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <text x="730" y="80" text-anchor="middle" font-size="10.5" fill="var(--teal)">proceso servidor</text>
+        <rect x="660" y="92" width="140" height="40" rx="7" fill="var(--surface)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="730" y="117" text-anchor="middle" font-size="11.5" fill="var(--teal)" font-weight="700">traductor_a2a</text>
+
+        <line x1="600" y1="105" x2="638" y2="105" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1)"/>
+        <line x1="638" y1="121" x2="600" y2="121" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1)"/>
+        <text x="619" y="88" text-anchor="middle" font-size="9" fill="currentColor" opacity=".55">HTTP</text>
+
+        <rect x="470" y="176" width="290" height="30" rx="7" fill="var(--surface)" stroke="var(--ink-soft)" stroke-width="1.5"/>
+        <text x="615" y="196" text-anchor="middle" font-size="10" font-family="ui-monospace, Consolas, monospace" fill="currentColor">solo JSON: Agent Card + JSON-RPC</text>
+        <text x="615" y="228" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".55">nada de memoria en comun — ninguno importa el codigo del otro</text>
+      </svg>
+      </div>
+      <figcaption>Con LangGraph, "dos agentes" son dos funciones en el mismo intérprete. Con A2A
+      son dos programas que podrían estar en lenguajes distintos: lo único que los conecta es el
+      contrato HTTP + JSON.</figcaption>
+    </figure>
+  </section>
+
+  <section id="piezas">
+    <h3>Las dos piezas</h3>
+    <h2>Agent Card (descubrimiento) + JSON-RPC (invocación)</h2>
+    <p>Todo A2A se reduce a dos intercambios HTTP. Primero el cliente <strong>descubre</strong>
+    al agente pidiendo su <em>Agent Card</em> — un JSON público con su nombre, sus
+    <code>skills</code> y la URL a la que hay que hablarle. Después lo <strong>invoca</strong>
+    mandándole un mensaje por JSON-RPC 2.0 con el método <code>message/send</code>, y el servidor
+    responde con una <em>Task</em>.</p>
+
+    <figure>
+      <div class="fig-wrap">
+      <svg viewBox="0 0 780 300" role="img" aria-label="Diagrama de secuencia: el cliente primero pide GET al agent-card.json y recibe el Agent Card, luego manda un POST JSON-RPC message/send y recibe una Task con estado completed y el artifact de la traduccion">
+        <defs>
+          <marker id="d2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <text x="120" y="24" text-anchor="middle" font-size="13" fill="var(--amber)" font-weight="700" font-family="Bahnschrift, sans-serif">CLIENTE</text>
+        <line x1="120" y1="34" x2="120" y2="280" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="2 4"/>
+
+        <text x="660" y="24" text-anchor="middle" font-size="13" fill="var(--teal)" font-weight="700" font-family="Bahnschrift, sans-serif">SERVIDOR (traductor_a2a)</text>
+        <line x1="660" y1="34" x2="660" y2="280" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="2 4"/>
+
+        <line x1="120" y1="66" x2="650" y2="66" stroke="currentColor" stroke-width="1.5" marker-end="url(#d2)"/>
+        <text x="385" y="58" text-anchor="middle" font-size="11" font-family="ui-monospace, Consolas, monospace" fill="currentColor">GET /.well-known/agent-card.json</text>
+
+        <line x1="650" y1="98" x2="130" y2="98" stroke="currentColor" opacity=".7" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#d2)"/>
+        <text x="385" y="90" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">200 — Agent Card (name, skills, url)</text>
+
+        <rect x="60" y="118" width="120" height="24" rx="5" fill="var(--amber-soft)"/>
+        <text x="120" y="134" text-anchor="middle" font-size="10" fill="var(--amber)">arma el Task</text>
+
+        <line x1="120" y1="166" x2="650" y2="166" stroke="currentColor" stroke-width="1.5" marker-end="url(#d2)"/>
+        <text x="385" y="158" text-anchor="middle" font-size="11" font-family="ui-monospace, Consolas, monospace" fill="currentColor">POST / — {"method":"message/send", ...}</text>
+
+        <rect x="600" y="186" width="120" height="24" rx="5" fill="var(--teal-soft)"/>
+        <text x="660" y="202" text-anchor="middle" font-size="10" fill="var(--teal)">traduce()</text>
+
+        <line x1="650" y1="234" x2="130" y2="234" stroke="currentColor" opacity=".7" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#d2)"/>
+        <text x="385" y="226" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">200 — Task{status:"completed", artifacts:[...]}</text>
+
+        <rect x="330" y="252" width="120" height="24" rx="5" fill="var(--stop-soft)"/>
+        <text x="390" y="268" text-anchor="middle" font-size="10" fill="var(--stop)">lee el artifact</text>
+      </svg>
+      </div>
+      <figcaption>Dos verbos HTTP nada más: <code>GET</code> para descubrir,
+      <code>POST</code> para invocar. Ningún paso requiere que el cliente conozca cómo está
+      hecho <code>traductor_a2a</code> por dentro.</figcaption>
+    </figure>
+  </section>
+
+  <section id="anatomia">
+    <h3>Anatomía del mensaje</h3>
+    <h2>Lo que viaja por la red, tal cual</h2>
+    <p class="pre-lbl">Agent Card — GET /.well-known/agent-card.json</p>
+    <pre><code>{
+  "name": "traductor_a2a",
+  "description": "Traduce frases simples de espanol a ingles (vocabulario de demo).",
+  "url": "http://127.0.0.1:9000/",
+  "capabilities": { "streaming": false, "pushNotifications": false },
+  "skills": [
+    { "id": "traducir_es_en", "name": "Traducir espanol a ingles",
+      "tags": ["traduccion", "demo"], "examples": ["hola mundo"] }
+  ]
+}</code></pre>
+
+    <p class="pre-lbl">Request — POST / (JSON-RPC 2.0, método message/send)</p>
+    <pre><code>{
+  "jsonrpc": "2.0", "id": "9f2c...",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "parts": [{ "kind": "text", "text": "hola mundo gracias" }]
+    }
+  }
+}</code></pre>
+
+    <p class="pre-lbl">Response — la Task que devuelve el servidor</p>
+    <pre><code>{
+  "jsonrpc": "2.0", "id": "9f2c...",
+  "result": {
+    "id": "70a1d94d-...",
+    "status": { "state": "completed" },
+    "artifacts": [{
+      "name": "traduccion",
+      "parts": [{ "kind": "text", "text": "hello world thank you" }]
+    }]
+  }
+}</code></pre>
+
+    <div class="callout">
+      <p style="margin-bottom:0">El <code>id</code> del JSON-RPC va y vuelve igual (así el
+      cliente sabe a qué pedido corresponde cada respuesta); el <code>id</code> de la
+      <strong>Task</strong> es otro, generado por el servidor, y sirve para consultarla después
+      si el protocolo soportara estados intermedios (acá no: siempre responde ya
+      <code>completed</code>).</p>
+    </div>
+  </section>
+
+  <section id="corrida">
+    <h3>Trazado real</h3>
+    <h2>Una corrida real, de punta a punta</h2>
+    <p>Con <code>agente_servidor.py</code> corriendo en una terminal, esto es lo que imprime
+    <code>python cliente.py "hola mundo gracias por favor"</code> en la otra (salida real, sin
+    editar):</p>
+
+    <ol class="steps">
+      <li>
+        <span class="lbl">descubrir_agente()</span>
+        <p><code>GET /.well-known/agent-card.json</code>. El cliente imprime el nombre del
+        agente y sus skills — todavía no mandó ningún dato de la tarea.</p>
+      </li>
+      <li>
+        <span class="lbl">enviar_mensaje(card, texto)</span>
+        <p>Arma el <code>message/send</code> con la URL que trajo la Agent Card
+        (<code>card["url"]</code>) — nunca hardcodeada en el cliente.</p>
+      </li>
+      <li>
+        <span class="lbl">el servidor procesa y responde</span>
+        <p><code>do_POST</code> lee las <code>parts</code> del mensaje, llama a
+        <code>traducir()</code> y arma una Task nueva con <code>status.state = "completed"</code>.</p>
+      </li>
+      <li>
+        <span class="lbl">el cliente lee el artifact</span>
+        <p>Extrae <code>task["artifacts"][0]["parts"][0]["text"]</code> y lo imprime como
+        resultado final.</p>
+      </li>
+    </ol>
+
+    <div class="callout stop">
+      <p class="pre-lbl" style="margin-top:0">Salida real de la terminal</p>
+      <pre style="margin-bottom:0"><code>[cliente] Agent Card descubierta: traductor_a2a - Traduce frases simples...
+[cliente]   skill: traducir_es_en (Traduce palabra por palabra...)
+[cliente] Enviando Task -> "hola mundo gracias por favor"
+[cliente] Task 70a1d94d-1114-445a-a1aa-dfee16e442cd -> status=completed
+
+--- Resultado ---
+hello world thank you for favor</code></pre>
+    </div>
+  </section>
+
+  <section id="ejecutar">
+    <h3>Cómo correrlo</h3>
+    <h2>Dos terminales, cero dependencias</h2>
+    <p>Solo librería estándar de Python — sin <code>pip install</code>, sin Ollama, sin SDK de A2A.</p>
+    <pre># Terminal 1
+cd orquestacion/a2a-demo
+python agente_servidor.py
+
+# Terminal 2
+cd orquestacion/a2a-demo
+python cliente.py "hola mundo gracias por favor"</pre>
+  </section>
+
+  <section id="falta">
+    <h3>Honestidad del ejemplo</h3>
+    <h2>Qué le falta para ser A2A "completo"</h2>
+    <p>Esta implementación cubre el flujo feliz de <code>message/send</code> para que el
+    protocolo se vea entero en ~150 líneas. El spec real de A2A define bastante más, que acá se
+    dejó afuera a propósito:</p>
+    <div class="callout amber">
+      <p><strong>Streaming:</strong> <code>message/stream</code> con Server-Sent Events, para
+      Tasks largas que van mandando actualizaciones parciales.</p>
+      <p><strong>Estados intermedios:</strong> <code>working</code>, <code>input-required</code>
+      (el agente pide más datos a mitad de tarea), <code>tasks/get</code> para consultar el
+      estado después.</p>
+      <p><strong>Auth y push notifications:</strong> autenticación (API key / OAuth) sobre el
+      transporte, y <code>tasks/pushNotificationConfig</code> para que el servidor avise por
+      webhook cuando termina.</p>
+      <p style="margin-bottom:0">Para un caso real, conviene el SDK oficial
+      (<code>a2a-sdk</code> en Python) en vez de reimplementar el JSON-RPC a mano como acá.</p>
+    </div>
+  </section>
+
+  <section id="serie">
+    <h3>En este repo</h3>
+    <h2>Cuatro formas de repartir el trabajo entre agentes</h2>
+    <div class="api-wrap">
+    <table class="api">
+      <thead><tr><th>Patrón</th><th>Dónde viven los agentes</th><th>Archivo</th></tr></thead>
+      <tbody>
+        <tr><td>Supervisor</td><td>Mismo proceso — funciones de LangGraph</td><td><code>multiagente_langgraph.py</code></td></tr>
+        <tr><td>Router</td><td>Mismo proceso — sin LangGraph, keyword matching</td><td><code>agent-orchestration-demo/router/</code></td></tr>
+        <tr><td>Generador-Crítico</td><td>Mismo proceso — grafo con ciclo</td><td><code>generador_critico_langgraph.py</code></td></tr>
+        <tr><td>A2A</td><td><strong>Procesos separados</strong> — solo HTTP + JSON</td><td><code>a2a-demo/</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p style="margin-top:14px;margin-bottom:0">Los primeros tres son intercambiables entre sí
+    (todos resuelven "¿qué agente corre y en qué orden?" dentro de un programa). A2A resuelve
+    otra pregunta — "¿cómo hablo con un agente que no corre en mi programa?" — y por eso puede
+    combinarse con cualquiera de los otros tres: el servidor de este ejemplo podría, puertas
+    adentro, ser un grafo de LangGraph.</p>
+  </section>
+
+  <footer>
+    <p style="margin-bottom:6px">Basado en el código real de este repo:</p>
+    <div class="chips">
+      <span class="chip">a2a-demo/agente_servidor.py</span>
+      <span class="chip">a2a-demo/cliente.py</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

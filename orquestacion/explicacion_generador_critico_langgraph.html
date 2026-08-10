@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generador-Crítico con LangGraph — cómo funciona</title>
+<style>
+
+  :root{
+    --bg:#f2f3ef;
+    --surface:#fdfdfb;
+    --surface-2:#eaece6;
+    --ink:#1b2320;
+    --ink-soft:#4b5650;
+    --line:#d8dbd2;
+    --amber:#b5650a;
+    --amber-soft:#f4e3c8;
+    --teal:#0d6d63;
+    --teal-soft:#d9ece7;
+    --stop:#a6321f;
+    --stop-soft:#f4dcd6;
+    --code-bg:#e9ebe3;
+    --shadow: 0 1px 0 rgba(27,35,32,.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141a17;
+      --surface:#1b2320;
+      --surface-2:#212b26;
+      --ink:#eef1ec;
+      --ink-soft:#a9b3ac;
+      --line:#2e3a34;
+      --amber:#e0a856;
+      --amber-soft:#3a2f18;
+      --teal:#5fc9ba;
+      --teal-soft:#173330;
+      --stop:#e08672;
+      --stop-soft:#3a201b;
+      --code-bg:#20281f;
+      --shadow: 0 1px 0 rgba(0,0,0,.2);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141a17;
+    --surface:#1b2320;
+    --surface-2:#212b26;
+    --ink:#eef1ec;
+    --ink-soft:#a9b3ac;
+    --line:#2e3a34;
+    --amber:#e0a856;
+    --amber-soft:#3a2f18;
+    --teal:#5fc9ba;
+    --teal-soft:#173330;
+    --stop:#e08672;
+    --stop-soft:#3a201b;
+    --code-bg:#20281f;
+    --shadow: 0 1px 0 rgba(0,0,0,.2);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Segoe UI","Noto Sans",system-ui,sans-serif;
+    font-size:17px;
+    line-height:1.65;
+  }
+  .page{max-width:860px;margin:0 auto;padding:0 24px 80px}
+
+  h1,h2,h3{
+    font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;
+    font-weight:700;
+    letter-spacing:.01em;
+    text-wrap:balance;
+    color:var(--ink);
+    margin:0;
+  }
+  h2{font-size:22px;margin-bottom:6px}
+  h3{font-size:16px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:10px}
+  p{margin:0 0 14px;max-width:66ch}
+  strong{color:var(--ink);font-weight:700}
+  code{
+    font-family:ui-monospace,Consolas,"Cascadia Code",monospace;
+    font-size:.86em;
+    background:var(--code-bg);
+    padding:1px 6px;
+    border-radius:4px;
+  }
+  pre{
+    font-family:ui-monospace,Consolas,"Cascadia Code",monospace;
+    font-size:13.5px;
+    background:var(--code-bg);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:14px 16px;
+    overflow-x:auto;
+    margin:0 0 14px;
+  }
+
+  header.top{
+    padding:44px 0 30px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:38px;
+  }
+  .eyebrow{
+    font-family:"Bahnschrift","Arial Narrow",system-ui,sans-serif;
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-soft);display:inline-block}
+  header.top h1{font-size:36px;line-height:1.1;max-width:19ch}
+  header.top .sub{color:var(--ink-soft);max-width:58ch;margin-top:14px;font-size:16px}
+
+  .legend{
+    display:flex;flex-wrap:wrap;gap:18px;
+    margin-top:22px;
+    padding-top:18px;
+    border-top:1px dashed var(--line);
+  }
+  .legend .item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft)}
+  .legend .sw{width:14px;height:14px;border-radius:4px;flex:none}
+  .sw.amber{background:var(--amber)}
+  .sw.teal{background:var(--teal)}
+  .sw.stop{background:var(--stop)}
+  .sw.state{background:var(--ink-soft)}
+
+  section{margin-bottom:52px}
+  section > h3{margin-top:0}
+  section > h2{margin-bottom:10px}
+
+  figure{margin:22px 0 8px;padding:0}
+  figure svg{width:100%;height:auto;display:block}
+  figcaption{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-top:10px;
+    max-width:62ch;
+  }
+  .fig-wrap{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px 18px 14px;
+    box-shadow:var(--shadow);
+    overflow-x:auto;
+  }
+
+  ol.steps{
+    list-style:none;
+    margin:20px 0 0;
+    padding:0;
+    counter-reset:step;
+    border-left:2px solid var(--line);
+    margin-left:6px;
+  }
+  ol.steps li{
+    counter-increment:step;
+    position:relative;
+    padding:2px 0 26px 26px;
+  }
+  ol.steps li::before{
+    content:counter(step);
+    position:absolute;
+    left:-13px;
+    top:0;
+    width:24px;height:24px;
+    border-radius:50%;
+    background:var(--surface);
+    border:2px solid var(--teal);
+    color:var(--teal);
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-weight:700;
+    font-size:12px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  ol.steps li.rechazo::before{border-color:var(--amber);color:var(--amber)}
+  ol.steps li:last-child::before{border-color:var(--stop);color:var(--stop)}
+  ol.steps .lbl{
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-weight:700;
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink);
+    display:block;
+    margin-bottom:3px;
+  }
+  ol.steps p{margin:0;font-size:15px}
+  ol.steps .quote{
+    display:block;
+    margin-top:6px;
+    font-size:13.5px;
+    font-style:italic;
+    color:var(--ink-soft);
+    border-left:2px solid var(--line);
+    padding-left:10px;
+  }
+
+  table.api{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+    font-size:14px;
+  }
+  table.api th{
+    text-align:left;
+    background:var(--surface-2);
+    font-family:"Bahnschrift","Arial Narrow",sans-serif;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+    padding:10px 14px;
+    font-weight:700;
+  }
+  table.api td{
+    padding:10px 14px;
+    border-top:1px solid var(--line);
+    vertical-align:top;
+  }
+  table.api td:first-child{white-space:nowrap;font-weight:600}
+  .api-wrap{overflow-x:auto}
+
+  .callout{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-left:4px solid var(--teal);
+    border-radius:8px;
+    padding:16px 18px;
+    margin:18px 0;
+  }
+  .callout p:last-child{margin-bottom:0}
+  .callout.amber{border-left-color:var(--amber)}
+  .callout.stop{border-left-color:var(--stop)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{
+    font-family:ui-monospace,Consolas,monospace;
+    font-size:12.5px;
+    background:var(--code-bg);
+    border:1px solid var(--line);
+    padding:5px 10px;
+    border-radius:6px;
+    color:var(--ink-soft);
+  }
+
+  footer{
+    border-top:1px solid var(--line);
+    margin-top:60px;
+    padding-top:20px;
+    color:var(--ink-soft);
+    font-size:13px;
+  }
+
+  @media (max-width:600px){
+    header.top h1{font-size:27px}
+    body{font-size:16px}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <div class="eyebrow"><span class="dot"></span>orquestacion / generador_critico_langgraph.py</div>
+    <h1>Generador-Crítico: el grafo que se corrige a sí mismo</h1>
+    <p class="sub">Los dos ejemplos anteriores de LangGraph corrían en un solo salto:
+    <code>supervisor → agente → END</code>. Este grafo agrega algo nuevo — un <strong>ciclo</strong>:
+    un agente escribe, otro lo critica, y si no alcanza, vuelve a escribir. Esta explicación usa
+    el grafo real de este repo.</p>
+    <div class="legend">
+      <span class="item"><span class="sw amber"></span>decisión del crítico</span>
+      <span class="item"><span class="sw teal"></span>ejecución (generar / reescribir)</span>
+      <span class="item"><span class="sw stop"></span>fin del grafo</span>
+      <span class="item"><span class="sw state"></span>estado compartido</span>
+    </div>
+  </header>
+
+  <section id="por-que">
+    <h3>El problema</h3>
+    <h2>¿Por qué no quedarse con la primera respuesta?</h2>
+    <p>Un LLM sin revisión escribe una vez y eso es lo que hay: si la respuesta es genérica o le
+    falta algo, nadie se dio cuenta. El patrón <strong>generador-crítico</strong> (también llamado
+    <em>reflexión</em>) agrega un segundo agente cuyo único trabajo es leer el resultado con ojo
+    crítico y, si no convence, decirle al primero <em>qué</em> mejorar — no solo "está mal".</p>
+
+    <figure>
+      <div class="fig-wrap">
+      <svg viewBox="0 0 820 240" role="img" aria-label="Comparación: una sola llamada al LLM entrega una respuesta sin revisar, versus el ciclo generador-crítico que revisa y reescribe antes de entregar la salida">
+        <defs>
+          <marker id="c1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="currentColor" opacity=".55"/>
+          </marker>
+        </defs>
+
+        <text x="150" y="26" text-anchor="middle" font-size="12" letter-spacing=".06em" fill="currentColor" opacity=".6" font-family="Bahnschrift, sans-serif">UNA SOLA LLAMADA</text>
+        <rect x="60" y="90" width="180" height="52" rx="9" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.5"/>
+        <text x="150" y="121" text-anchor="middle" font-size="12.5" fill="currentColor" font-weight="700">LLM.invoke()</text>
+        <line x1="150" y1="142" x2="150" y2="172" stroke="currentColor" opacity=".5" stroke-width="1.5" marker-end="url(#c1)"/>
+        <rect x="70" y="176" width="160" height="34" rx="7" fill="none" stroke="var(--stop)" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="150" y="197" text-anchor="middle" font-size="11.5" fill="var(--stop)">salida sin revisar</text>
+
+        <line x1="290" y1="130" x2="340" y2="130" stroke="currentColor" opacity=".4" stroke-width="1.5" marker-end="url(#c1)"/>
+
+        <text x="580" y="26" text-anchor="middle" font-size="12" letter-spacing=".06em" fill="currentColor" opacity=".6" font-family="Bahnschrift, sans-serif">CICLO GENERADOR-CRÍTICO</text>
+        <rect x="440" y="60" width="150" height="50" rx="9" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="515" y="90" text-anchor="middle" font-size="12.5" fill="var(--teal)" font-weight="700">generador</text>
+
+        <rect x="640" y="60" width="150" height="50" rx="9" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.5"/>
+        <text x="715" y="90" text-anchor="middle" font-size="12.5" fill="var(--amber)" font-weight="700">crítico</text>
+
+        <line x1="590" y1="85" x2="632" y2="85" stroke="currentColor" opacity=".5" stroke-width="1.5" marker-end="url(#c1)"/>
+        <path d="M715,60 C715,30 560,30 515,58" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#c1)"/>
+        <text x="615" y="26" text-anchor="middle" font-size="10.5" fill="var(--amber)">rechaza → revisar</text>
+
+        <line x1="715" y1="110" x2="715" y2="150" stroke="currentColor" opacity=".5" stroke-width="1.5" marker-end="url(#c1)"/>
+        <rect x="635" y="154" width="160" height="34" rx="7" fill="var(--stop-soft)" stroke="var(--stop)" stroke-width="1.5"/>
+        <text x="715" y="176" text-anchor="middle" font-size="11.5" fill="var(--stop)">salida revisada</text>
+        <text x="715" y="210" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".55">aprueba, o se acaban los intentos</text>
+      </svg>
+      </div>
+      <figcaption>La diferencia no es "otro LLM" — es que la salida pasa por un chequeo de
+      calidad antes de considerarse terminada, con feedback concreto para corregir.</figcaption>
+    </figure>
+  </section>
+
+  <section id="grafo">
+    <h3>El grafo</h3>
+    <h2>generador → crítico → (revisar | fin)</h2>
+    <p>Dos nodos, tres aristas: <code>START → generador</code> y <code>generador → critico</code>
+    son fijas. La tercera es <strong>condicional</strong> y es la que cierra el ciclo: según lo
+    que decida <code>_siguiente_paso(estado)</code>, vuelve a <code>generador</code> (con la
+    crítica como feedback) o corta a <code>END</code>. El corte pasa por dos motivos distintos:
+    el crítico aprobó, <strong>o</strong> ya se gastaron los <code>MAX_INTENTOS</code> — un
+    salvavidas para que el grafo no gire para siempre si el crítico nunca queda conforme.</p>
+
+    <figure>
+      <div class="fig-wrap">
+      <svg viewBox="0 0 780 280" role="img" aria-label="Grafo: START entra a generador, generador va a critico, y critico tiene una arista condicional que vuelve a generador si rechaza y quedan intentos, o va a END si aprueba o se acabaron los intentos">
+        <defs>
+          <marker id="c2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="currentColor"/>
+          </marker>
+          <marker id="c2amber" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="var(--amber)"/>
+          </marker>
+          <marker id="c2stop" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="var(--stop)"/>
+          </marker>
+        </defs>
+
+        <rect x="15" y="123" width="70" height="34" rx="17" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="50" y="144" text-anchor="middle" font-size="12" fill="currentColor" font-weight="700">START</text>
+        <line x1="85" y1="140" x2="140" y2="140" stroke="currentColor" stroke-width="1.5" marker-end="url(#c2)"/>
+
+        <rect x="140" y="112" width="160" height="56" rx="10" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.8"/>
+        <text x="220" y="136" text-anchor="middle" font-size="13" fill="var(--teal)" font-weight="700">generador</text>
+        <text x="220" y="153" text-anchor="middle" font-size="10" fill="var(--teal)">escribe / reescribe</text>
+
+        <line x1="300" y1="140" x2="350" y2="140" stroke="currentColor" stroke-width="1.5" marker-end="url(#c2)"/>
+
+        <rect x="350" y="112" width="160" height="56" rx="10" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.8"/>
+        <text x="430" y="136" text-anchor="middle" font-size="13" fill="var(--amber)" font-weight="700">critico</text>
+        <text x="430" y="153" text-anchor="middle" font-size="10" fill="var(--amber)">aprueba o rechaza</text>
+
+        <path d="M420,112 C 390,46 260,46 228,110" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#c2amber)"/>
+        <text x="320" y="42" text-anchor="middle" font-size="10.5" fill="var(--amber)">"revisar" — quedan intentos</text>
+
+        <line x1="510" y1="140" x2="560" y2="140" stroke="currentColor" stroke-width="1.5" marker-end="url(#c2stop)"/>
+        <text x="535" y="128" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".6">"fin"</text>
+
+        <rect x="560" y="123" width="70" height="34" rx="17" fill="var(--stop-soft)" stroke="var(--stop)" stroke-width="1.5"/>
+        <text x="595" y="144" text-anchor="middle" font-size="12" fill="var(--stop)" font-weight="700">END</text>
+
+        <text x="430" y="200" text-anchor="middle" font-size="11" fill="currentColor" opacity=".6">"fin" pasa por DOS caminos: aprobado=True, o intentos ≥ MAX_INTENTOS</text>
+
+        <g transform="translate(120,236)">
+          <line x1="0" y1="0" x2="30" y2="0" stroke="currentColor" stroke-width="1.5"/>
+          <text x="38" y="4" font-size="11" fill="currentColor" opacity=".65">arista fija (add_edge)</text>
+          <line x1="230" y1="0" x2="260" y2="0" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="268" y="4" font-size="11" fill="currentColor" opacity=".65">arista condicional (_siguiente_paso) — cierra el ciclo</text>
+        </g>
+      </svg>
+      </div>
+      <figcaption>A diferencia del grafo del supervisor (que siempre avanza), acá la arista
+      condicional puede apuntar <strong>hacia atrás</strong>, a un nodo que ya se ejecutó. Eso es
+      lo que convierte al grafo en un ciclo.</figcaption>
+    </figure>
+  </section>
+
+  <section id="estado">
+    <h3>El dato que viaja</h3>
+    <h2>El estado acumula intentos, no solo campos</h2>
+    <p>Igual que en el supervisor, todo vive en un <code>TypedDict Estado</code> compartido
+    (<code>tarea</code>, <code>borrador</code>, <code>criticas</code>, <code>intentos</code>,
+    <code>aprobado</code>). La diferencia es que acá el mismo campo se <strong>pisa varias
+    veces</strong>: cada vuelta por <code>generador</code> reemplaza <code>borrador</code> usando
+    el <code>criticas</code> que dejó la vuelta anterior.</p>
+
+    <figure>
+      <div class="fig-wrap">
+      <svg viewBox="0 0 820 200" role="img" aria-label="El estado a través de tres vueltas del ciclo: intento 1 sin críticas previas y rechazado, intento 2 revisando con la crítica del intento 1 y rechazado de nuevo, intento 3 revisando con la crítica del intento 2 y aprobado, terminando el ciclo">
+        <defs>
+          <marker id="c3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="currentColor" opacity=".5"/>
+          </marker>
+        </defs>
+
+        <rect x="10" y="20" width="240" height="150" rx="10" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.5"/>
+        <text x="130" y="44" text-anchor="middle" font-size="11.5" font-family="Bahnschrift, sans-serif" letter-spacing=".04em" fill="currentColor" opacity=".65">INTENTO 1</text>
+        <text x="26" y="72" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".8">criticas: (ninguna aún)</text>
+        <text x="26" y="98" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" font-weight="700">borrador: v1</text>
+        <text x="26" y="124" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="var(--amber)" font-weight="700">aprobado: False</text>
+        <text x="26" y="150" font-size="11.5" fill="currentColor" opacity=".6">critico rechaza →</text>
+
+        <line x1="256" y1="95" x2="298" y2="95" stroke="var(--amber)" stroke-width="1.5" marker-end="url(#c3)"/>
+
+        <rect x="302" y="20" width="240" height="150" rx="10" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.5"/>
+        <text x="422" y="44" text-anchor="middle" font-size="11.5" font-family="Bahnschrift, sans-serif" letter-spacing=".04em" fill="var(--amber)">INTENTO 2 (revisión)</text>
+        <text x="318" y="72" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="var(--amber)" font-weight="700">criticas: "más concisa"</text>
+        <text x="318" y="98" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".8">borrador: v2 (reescrito)</text>
+        <text x="318" y="124" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="var(--amber)" font-weight="700">aprobado: False</text>
+        <text x="318" y="150" font-size="11.5" fill="currentColor" opacity=".6">critico rechaza de nuevo →</text>
+
+        <line x1="548" y1="95" x2="590" y2="95" stroke="var(--amber)" stroke-width="1.5" marker-end="url(#c3)"/>
+
+        <rect x="594" y="20" width="216" height="150" rx="10" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+        <text x="702" y="44" text-anchor="middle" font-size="11.5" font-family="Bahnschrift, sans-serif" letter-spacing=".04em" fill="var(--teal)">INTENTO 3 — FIN</text>
+        <text x="610" y="72" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".8">criticas: "más concisa"</text>
+        <text x="610" y="98" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="currentColor" opacity=".8">borrador: v3 (reescrito)</text>
+        <text x="610" y="124" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="var(--teal)" font-weight="700">aprobado: True</text>
+        <text x="610" y="150" font-size="11.5" fill="var(--teal)" font-weight="700">critico aprueba → END</text>
+      </svg>
+      </div>
+      <figcaption>Corrida real (ver sección siguiente): la crítica de una vuelta se convierte en
+      el input de la próxima. El ciclo corta apenas <code>aprobado</code> pasa a
+      <code>True</code> — no espera a agotar los intentos.</figcaption>
+    </figure>
+  </section>
+
+  <section id="corrida">
+    <h3>Trazado real</h3>
+    <h2>Una corrida completa, de punta a punta</h2>
+    <p>Pedido: <code>"Explica en una sola oracion que es una API REST"</code>. Esta es la salida
+    real de <code>python generador_critico_langgraph.py</code> (sin editar):</p>
+
+    <ol class="steps">
+      <li>
+        <span class="lbl">generador — intento 1</span>
+        <p>Sin <code>criticas</code> previas, arma el prompt solo con la tarea y escribe el
+        primer borrador.</p>
+      </li>
+      <li class="rechazo">
+        <span class="lbl">critico — rechaza</span>
+        <p><code>_siguiente_paso</code> devuelve <code>"revisar"</code> (no aprobó y quedan
+        intentos), así que la arista condicional vuelve a <code>generador</code>.</p>
+        <span class="quote">"La explicación es correcta y completa, pero podría ser más concisa."</span>
+      </li>
+      <li>
+        <span class="lbl">generador — intento 2</span>
+        <p>Esta vez <code>estado["criticas"]</code> no está vacío: el prompt cambia a modo
+        "reescribí con este feedback" y usa el borrador anterior + la crítica como input.</p>
+      </li>
+      <li class="rechazo">
+        <span class="lbl">critico — rechaza otra vez</span>
+        <p>Sigue sin convencer del todo. Como <code>intentos == 2 &lt; MAX_INTENTOS (3)</code>,
+        todavía hay margen: vuelve a <code>generador</code> una vez más.</p>
+        <span class="quote">"La explicación es correcta pero podría ser más concisa."</span>
+      </li>
+      <li>
+        <span class="lbl">generador — intento 3</span>
+        <p>Reescribe de nuevo con la última crítica.</p>
+      </li>
+      <li>
+        <span class="lbl">critico — aprueba → END</span>
+        <p><code>aprobado=True</code>, así que <code>_siguiente_paso</code> devuelve
+        <code>"fin"</code> sin importar cuántos intentos queden. El grafo corta y devuelve el
+        estado final.</p>
+        <span class="quote">"La explicación es correcta y completa, sin necesidad de modificaciones."</span>
+      </li>
+    </ol>
+
+    <div class="callout stop">
+      <p><strong>Resultado final</strong> (<code>estado_final["borrador"]</code>, 3 intentos,
+      aprobado=True):</p>
+      <p style="margin-bottom:0"><em>"Una API REST es un conjunto de estándares que permite a las
+      aplicaciones comunicarse a través de recursos utilizando métodos como GET, POST, PUT y
+      DELETE, facilitando la interacción y el intercambio de datos."</em></p>
+    </div>
+
+    <div class="callout amber">
+      <p style="margin-bottom:0"><strong>Cuando el crítico nunca afloja:</strong> con pedidos más
+      subjetivos (un eslogan, una bio graciosa), en la práctica el crítico de este modelo
+      (<code>gemma3</code>) puede rechazar las 3 veces sin aprobar nunca. Ahí es donde entra el
+      salvavidas: al llegar a <code>MAX_INTENTOS</code>, <code>_siguiente_paso</code> devuelve
+      <code>"fin"</code> igual, y el grafo entrega el último borrador con
+      <code>aprobado=False</code> en vez de girar para siempre.</p>
+    </div>
+  </section>
+
+  <section id="ejecutar">
+    <h3>Cómo correrlo</h3>
+    <h2>Ejecutar la demo</h2>
+    <p>Mismos requisitos que <code>multiagente_langgraph.py</code>: Ollama corriendo con
+    <code>gemma3</code>, y las dependencias de <code>requirements-orquestacion.txt</code> (no
+    hace falta instalar nada nuevo).</p>
+    <pre>cd orquestacion
+python generador_critico_langgraph.py "Explica en una sola oracion que es una API REST"
+
+# o en modo interactivo:
+python generador_critico_langgraph.py</pre>
+  </section>
+
+  <section id="piezas">
+    <h3>Referencia</h3>
+    <h2>Qué cambia respecto al grafo del supervisor</h2>
+    <div class="api-wrap">
+    <table class="api">
+      <thead><tr><th>Pieza</th><th>Qué hace acá</th></tr></thead>
+      <tbody>
+        <tr><td><code>add_conditional_edges("critico", ...)</code></td><td>El mapa incluye <code>"revisar": "generador"</code> — apunta a un nodo <strong>anterior</strong>, no solo hacia adelante. Eso es lo que crea el ciclo.</td></tr>
+        <tr><td><code>MAX_INTENTOS</code></td><td>Salvavidas propio del código: corta el ciclo aunque el crítico jamás apruebe. Sin esto, un crítico demasiado exigente lo haría girar indefinidamente.</td></tr>
+        <tr><td>límite de recursión de LangGraph</td><td>Además del salvavidas propio, LangGraph corta cualquier grafo que pase de 25 pasos (<code>recursion_limit</code>) — una segunda red de seguridad si el conteo propio fallara.</td></tr>
+        <tr><td><code>estado["criticas"]</code></td><td>Hace doble función: si está vacío, <code>generador</code> escribe desde cero; si tiene texto, reescribe usándolo como feedback puntual.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section id="serie">
+    <h3>En este repo</h3>
+    <h2>Tres formas distintas de repartir el trabajo</h2>
+    <div class="api-wrap">
+    <table class="api">
+      <thead><tr><th>Patrón</th><th>Forma del grafo</th><th>Archivo</th></tr></thead>
+      <tbody>
+        <tr><td>Supervisor</td><td>Un salto: clasifica y deriva a un especialista</td><td><code>multiagente_langgraph.py</code></td></tr>
+        <tr><td>Router</td><td>Keyword matching + ejecución en paralelo (sin LangGraph)</td><td><code>agent-orchestration-demo/router/</code></td></tr>
+        <tr><td>Generador-Crítico</td><td><strong>Ciclo</strong>: revisa y reescribe hasta aprobar o agotar intentos</td><td><code>generador_critico_langgraph.py</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <footer>
+    <p style="margin-bottom:6px">Basado en el código real de este repo:</p>
+    <div class="chips">
+      <span class="chip">orquestacion/generador_critico_langgraph.py</span>
+      <span class="chip">orquestacion/multiagente_langgraph.py</span>
+      <span class="chip">orquestacion/requirements-orquestacion.txt</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
