@@ -21,10 +21,18 @@ pregunta ──► AGENTE (LLM con tools)
 2. **`uv`** instalado (provee `uvx`, que lanza el servidor MCP):
    https://docs.astral.sh/uv/getting-started/installation/
 3. **Token de Jira (Cloud)**: https://id.atlassian.com/manage-profile/security/api-tokens
-4. Dependencias de Python:
+4. **Venv propio** (no el `.venv` de la raíz del repo): `langchain 0.3.x` (usado acá
+   vía `create_tool_calling_agent`) exige `langchain-core<1.0`, pero las demos de
+   LangGraph del repo ya subieron el `.venv` raíz a `langchain-core` 1.x
+   (`langgraph>=1.2` exige `langchain-core>=1.4.7`). Ambos requisitos no conviven en
+   un mismo entorno, así que esta demo usa un venv local:
    ```powershell
-   pip install -r requirements-mcp-jira.txt
+   python -m venv .venv
+   .\.venv\Scripts\pip install -r requirements-mcp-jira.txt
    ```
+   Si `pip` falla con `CERTIFICATE_VERIFY_FAILED` (antivirus/firewall interceptando
+   TLS, mismo motivo que el `--native-tls` de `uvx` más abajo), agregá:
+   `--trusted-host pypi.org --trusted-host files.pythonhosted.org`.
 
 ## Configurar credenciales
 
@@ -40,14 +48,18 @@ con la tool de RAG (sin Jira).
 
 ```powershell
 # Consulta a Jira (usa las tools del MCP)
-python rag_mcp_jira.py "Listá los issues abiertos del proyecto ABC"
+.\iniciar_mcp_jira_demo.ps1 "Listá los issues abiertos del proyecto ABC"
 
 # Pregunta conceptual (usa el RAG local)
-python rag_mcp_jira.py "¿Que es una base de datos vectorial?"
+.\iniciar_mcp_jira_demo.ps1 "¿Que es una base de datos vectorial?"
 
 # Interactivo
-python rag_mcp_jira.py
+.\iniciar_mcp_jira_demo.ps1
 ```
+
+El script activa el venv local (`.venv`), verifica Ollama/modelos/`uv` y corre
+`rag_mcp_jira.py`. Si preferís invocarlo a mano (venv ya activado):
+`python rag_mcp_jira.py "..."`.
 
 ## Cómo funciona
 
