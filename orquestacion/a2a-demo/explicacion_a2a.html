@@ -277,13 +277,14 @@
     <p class="sub">Los tres ejemplos anteriores viven todos <strong>adentro de un mismo proceso
     Python</strong>. A2A (Agent2Agent) resuelve un problema distinto: cómo hacen dos agentes que
     corren en procesos, máquinas o hasta frameworks diferentes para hablarse, sin que uno conozca
-    el código interno del otro. Acá va la versión más chica posible del protocolo, con la
-    librería estándar de Python.</p>
+    el código interno del otro. Esta versión usa el <strong>SDK oficial</strong>
+    (<code>a2a-sdk</code>, del proyecto Agent2Agent / Linux Foundation): nosotros solo escribimos
+    la lógica del agente, todo lo protocolar lo arma el SDK.</p>
     <div class="legend">
       <span class="item"><span class="sw amber"></span>cliente</span>
       <span class="item"><span class="sw teal"></span>agente remoto (servidor)</span>
       <span class="item"><span class="sw state"></span>contrato (Agent Card / JSON)</span>
-      <span class="item"><span class="sw stop"></span>estado de la Task</span>
+      <span class="item"><span class="sw stop"></span>resultado final</span>
     </div>
   </header>
 
@@ -354,12 +355,13 @@
     <p>Todo A2A se reduce a dos intercambios HTTP. Primero el cliente <strong>descubre</strong>
     al agente pidiendo su <em>Agent Card</em> — un JSON público con su nombre, sus
     <code>skills</code> y la URL a la que hay que hablarle. Después lo <strong>invoca</strong>
-    mandándole un mensaje por JSON-RPC 2.0 con el método <code>message/send</code>, y el servidor
-    responde con una <em>Task</em>.</p>
+    mandándole un mensaje por JSON-RPC 2.0 con el método <code>message/send</code>. La respuesta
+    puede ser un <em>Message</em> directo (agente que contesta al toque, como este) o una
+    <em>Task</em> (agente que queda trabajando en el fondo) — más sobre esa diferencia abajo.</p>
 
     <figure>
       <div class="fig-wrap">
-      <svg viewBox="0 0 780 300" role="img" aria-label="Diagrama de secuencia: el cliente primero pide GET al agent-card.json y recibe el Agent Card, luego manda un POST JSON-RPC message/send y recibe una Task con estado completed y el artifact de la traduccion">
+      <svg viewBox="0 0 780 300" role="img" aria-label="Diagrama de secuencia: el cliente primero pide GET al agent-card.json y recibe el Agent Card, luego manda un POST JSON-RPC message/send y recibe directamente un Message del agente con la traduccion, sin pasar por una Task">
         <defs>
           <marker id="d2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
             <polygon points="0,0 8,3 0,6" fill="currentColor"/>
@@ -378,20 +380,20 @@
         <line x1="650" y1="98" x2="130" y2="98" stroke="currentColor" opacity=".7" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#d2)"/>
         <text x="385" y="90" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">200 — Agent Card (name, skills, url)</text>
 
-        <rect x="60" y="118" width="120" height="24" rx="5" fill="var(--amber-soft)"/>
-        <text x="120" y="134" text-anchor="middle" font-size="10" fill="var(--amber)">arma el Task</text>
+        <rect x="45" y="118" width="150" height="24" rx="5" fill="var(--amber-soft)"/>
+        <text x="120" y="134" text-anchor="middle" font-size="10" fill="var(--amber)">ClientFactory arma el Message</text>
 
         <line x1="120" y1="166" x2="650" y2="166" stroke="currentColor" stroke-width="1.5" marker-end="url(#d2)"/>
         <text x="385" y="158" text-anchor="middle" font-size="11" font-family="ui-monospace, Consolas, monospace" fill="currentColor">POST / — {"method":"message/send", ...}</text>
 
-        <rect x="600" y="186" width="120" height="24" rx="5" fill="var(--teal-soft)"/>
-        <text x="660" y="202" text-anchor="middle" font-size="10" fill="var(--teal)">traduce()</text>
+        <rect x="585" y="186" width="150" height="24" rx="5" fill="var(--teal-soft)"/>
+        <text x="660" y="202" text-anchor="middle" font-size="9.5" fill="var(--teal)">AgentExecutor.execute()</text>
 
         <line x1="650" y1="234" x2="130" y2="234" stroke="currentColor" opacity=".7" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#d2)"/>
-        <text x="385" y="226" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">200 — Task{status:"completed", artifacts:[...]}</text>
+        <text x="385" y="226" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">200 — result: Message (role: agent, parts: [texto])</text>
 
-        <rect x="330" y="252" width="120" height="24" rx="5" fill="var(--stop-soft)"/>
-        <text x="390" y="268" text-anchor="middle" font-size="10" fill="var(--stop)">lee el artifact</text>
+        <rect x="330" y="252" width="150" height="24" rx="5" fill="var(--stop-soft)"/>
+        <text x="405" y="268" text-anchor="middle" font-size="10" fill="var(--stop)">lee las parts del Message</text>
       </svg>
       </div>
       <figcaption>Dos verbos HTTP nada más: <code>GET</code> para descubrir,
@@ -403,12 +405,21 @@
   <section id="anatomia">
     <h3>Anatomía del mensaje</h3>
     <h2>Lo que viaja por la red, tal cual</h2>
+    <p>Esto es JSON <strong>real</strong> capturado corriendo <code>agente_servidor.py</code> /
+    <code>cliente.py</code> — nosotros nunca escribimos estos diccionarios a mano; los arma el
+    SDK a partir de los objetos Python (<code>AgentCard(...)</code>, <code>Message(...)</code>).</p>
+
     <p class="pre-lbl">Agent Card — GET /.well-known/agent-card.json</p>
     <pre><code>{
   "name": "traductor_a2a",
   "description": "Traduce frases simples de espanol a ingles (vocabulario de demo).",
   "url": "http://127.0.0.1:9000/",
-  "capabilities": { "streaming": false, "pushNotifications": false },
+  "version": "0.1.0",
+  "protocolVersion": "0.3.0",
+  "preferredTransport": "JSONRPC",
+  "capabilities": { "streaming": false },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
   "skills": [
     { "id": "traducir_es_en", "name": "Traducir espanol a ingles",
       "tags": ["traduccion", "demo"], "examples": ["hola mundo"] }
@@ -417,35 +428,37 @@
 
     <p class="pre-lbl">Request — POST / (JSON-RPC 2.0, método message/send)</p>
     <pre><code>{
-  "jsonrpc": "2.0", "id": "9f2c...",
+  "id": "9f2c...", "jsonrpc": "2.0",
   "method": "message/send",
   "params": {
     "message": {
+      "kind": "message",
+      "messageId": "a1b2...",
       "role": "user",
       "parts": [{ "kind": "text", "text": "hola mundo gracias" }]
     }
   }
 }</code></pre>
 
-    <p class="pre-lbl">Response — la Task que devuelve el servidor</p>
+    <p class="pre-lbl">Response — result es un Message, NO una Task</p>
     <pre><code>{
-  "jsonrpc": "2.0", "id": "9f2c...",
+  "id": "9f2c...", "jsonrpc": "2.0",
   "result": {
-    "id": "70a1d94d-...",
-    "status": { "state": "completed" },
-    "artifacts": [{
-      "name": "traduccion",
-      "parts": [{ "kind": "text", "text": "hello world thank you" }]
-    }]
+    "kind": "message",
+    "messageId": "c3d4...",
+    "role": "agent",
+    "parts": [{ "kind": "text", "text": "hello world thank you" }]
   }
 }</code></pre>
 
     <div class="callout">
-      <p style="margin-bottom:0">El <code>id</code> del JSON-RPC va y vuelve igual (así el
-      cliente sabe a qué pedido corresponde cada respuesta); el <code>id</code> de la
-      <strong>Task</strong> es otro, generado por el servidor, y sirve para consultarla después
-      si el protocolo soportara estados intermedios (acá no: siempre responde ya
-      <code>completed</code>).</p>
+      <p style="margin-bottom:0"><strong>Esto sorprendió incluso escribiendo la demo:</strong> la
+      primera versión de este ejemplo (hecha a mano, sin el SDK) siempre envolvía la respuesta en
+      una <code>Task</code> con <code>artifacts</code> — parecía "más completo". Pero el spec real
+      dice otra cosa: un agente que responde <strong>al toque</strong> (como este traductor)
+      encola un <code>Message</code> y listo, sin Task de por medio. La <code>Task</code> con
+      <code>status</code>/<code>artifacts</code> recién aparece cuando el trabajo es largo y el
+      agente necesita ir informando avances — ver la sección siguiente.</p>
     </div>
   </section>
 
@@ -459,32 +472,35 @@
     <ol class="steps">
       <li>
         <span class="lbl">descubrir_agente()</span>
-        <p><code>GET /.well-known/agent-card.json</code>. El cliente imprime el nombre del
-        agente y sus skills — todavía no mandó ningún dato de la tarea.</p>
+        <p><code>A2ACardResolver(...).get_agent_card()</code> hace el
+        <code>GET /.well-known/agent-card.json</code> y lo deserializa a un objeto
+        <code>AgentCard</code> tipado. El cliente imprime el nombre y las skills — todavía no
+        mandó ningún dato de la tarea.</p>
       </li>
       <li>
-        <span class="lbl">enviar_mensaje(card, texto)</span>
-        <p>Arma el <code>message/send</code> con la URL que trajo la Agent Card
-        (<code>card["url"]</code>) — nunca hardcodeada en el cliente.</p>
+        <span class="lbl">enviar_mensaje() — ClientFactory</span>
+        <p><code>ClientFactory(ClientConfig(...)).create(card)</code> arma un cliente que ya sabe
+        hablarle a la URL y el transporte que declaró la Agent Card — nunca hardcodeados.</p>
       </li>
       <li>
-        <span class="lbl">el servidor procesa y responde</span>
-        <p><code>do_POST</code> lee las <code>parts</code> del mensaje, llama a
-        <code>traducir()</code> y arma una Task nueva con <code>status.state = "completed"</code>.</p>
+        <span class="lbl">el servidor — AgentExecutor.execute()</span>
+        <p><code>context.get_user_input()</code> saca el texto del <code>Message</code> entrante;
+        <code>traducir()</code> lo procesa; <code>event_queue.enqueue_event(new_agent_text_message(...))</code>
+        encola la respuesta. El SDK se encarga de convertir eso en el JSON-RPC de vuelta.</p>
       </li>
       <li>
-        <span class="lbl">el cliente lee el artifact</span>
-        <p>Extrae <code>task["artifacts"][0]["parts"][0]["text"]</code> y lo imprime como
-        resultado final.</p>
+        <span class="lbl">el cliente lee las parts</span>
+        <p><code>client.send_message(mensaje)</code> es un <code>async for</code>: para este
+        agente llega un único evento, un <code>Message</code>, del que se leen las
+        <code>parts</code> de texto.</p>
       </li>
     </ol>
 
     <div class="callout stop">
       <p class="pre-lbl" style="margin-top:0">Salida real de la terminal</p>
-      <pre style="margin-bottom:0"><code>[cliente] Agent Card descubierta: traductor_a2a - Traduce frases simples...
-[cliente]   skill: traducir_es_en (Traduce palabra por palabra...)
-[cliente] Enviando Task -> "hola mundo gracias por favor"
-[cliente] Task 70a1d94d-1114-445a-a1aa-dfee16e442cd -> status=completed
+      <pre style="margin-bottom:0"><code>[cliente] Agent Card descubierta: traductor_a2a - Traduce frases simples de espanol a ingles...
+[cliente]   skill: traducir_es_en (Traduce palabra por palabra usando un vocabulario chico de demo.)
+[cliente] Enviando mensaje -> "hola mundo gracias por favor"
 
 --- Resultado ---
 hello world thank you for favor</code></pre>
@@ -493,34 +509,50 @@ hello world thank you for favor</code></pre>
 
   <section id="ejecutar">
     <h3>Cómo correrlo</h3>
-    <h2>Dos terminales, cero dependencias</h2>
-    <p>Solo librería estándar de Python — sin <code>pip install</code>, sin Ollama, sin SDK de A2A.</p>
-    <pre># Terminal 1
+    <h2>Dos terminales</h2>
+    <pre># una sola vez: instalar el SDK oficial
 cd orquestacion/a2a-demo
+pip install -r requirements-a2a.txt
+
+# Terminal 1
 python agente_servidor.py
 
 # Terminal 2
-cd orquestacion/a2a-demo
 python cliente.py "hola mundo gracias por favor"</pre>
+    <p>O con el launcher, que activa el venv, chequea las dependencias y levanta el servidor
+    solo si hace falta:</p>
+    <pre>.\iniciar_a2a_demo.ps1 "hola mundo gracias por favor"</pre>
   </section>
 
   <section id="falta">
-    <h3>Honestidad del ejemplo</h3>
-    <h2>Qué le falta para ser A2A "completo"</h2>
-    <p>Esta implementación cubre el flujo feliz de <code>message/send</code> para que el
-    protocolo se vea entero en ~150 líneas. El spec real de A2A define bastante más, que acá se
-    dejó afuera a propósito:</p>
+    <h3>Qué hace el SDK, qué escribimos nosotros</h3>
+    <h2>Dónde termina el protocolo y empieza la lógica del agente</h2>
+    <p>Todo <code>agente_servidor.py</code> se reduce a implementar <code>AgentExecutor</code>
+    (un método <code>execute()</code> y un <code>cancel()</code>). Todo lo demás —serializar el
+    Agent Card, exponer <code>/.well-known/agent-card.json</code>, parsear el JSON-RPC, validar
+    el <code>Message</code> entrante, armar la respuesta— lo resuelve
+    <code>A2AStarletteApplication</code> + <code>DefaultRequestHandler</code>. Eso es lo que
+    compra usar el SDK oficial en vez de reimplementar el protocolo a mano.</p>
+    <p>Dicho eso, esta demo sigue siendo deliberadamente chica. El spec real de A2A define bastante
+    más, que acá no se ejercita porque el agente siempre responde al toque:</p>
     <div class="callout amber">
       <p><strong>Streaming:</strong> <code>message/stream</code> con Server-Sent Events, para
-      Tasks largas que van mandando actualizaciones parciales.</p>
-      <p><strong>Estados intermedios:</strong> <code>working</code>, <code>input-required</code>
-      (el agente pide más datos a mitad de tarea), <code>tasks/get</code> para consultar el
-      estado después.</p>
-      <p><strong>Auth y push notifications:</strong> autenticación (API key / OAuth) sobre el
-      transporte, y <code>tasks/pushNotificationConfig</code> para que el servidor avise por
-      webhook cuando termina.</p>
-      <p style="margin-bottom:0">Para un caso real, conviene el SDK oficial
-      (<code>a2a-sdk</code> en Python) en vez de reimplementar el JSON-RPC a mano como acá.</p>
+      Tasks largas que van mandando actualizaciones parciales — acá <code>ClientConfig(streaming=False)</code>.</p>
+      <p><strong>Ciclo de vida de la Task:</strong> <code>working</code>, <code>input-required</code>
+      (el agente pide más datos a mitad de tarea), <code>tasks/get</code> para consultarla después.
+      El SDK lo soporta (<code>TaskUpdater</code>, <code>InMemoryTaskStore</code>); este agente no
+      lo usa porque nunca llega a crear una Task.</p>
+      <p style="margin-bottom:0"><strong>Auth y push notifications:</strong> autenticación sobre
+      el transporte, y <code>tasks/pushNotificationConfig</code> para avisar por webhook. Tampoco
+      cubiertos acá.</p>
+    </div>
+    <div class="callout">
+      <p style="margin-bottom:0"><strong>Sobre la versión:</strong> se fija
+      <code>a2a-sdk&lt;1.0</code> a propósito. La serie 1.x reescribió los tipos centrales
+      (<code>AgentCard</code>, <code>Message</code>, <code>Task</code>...) sobre protobuf en vez
+      de los modelos pydantic de 0.x que usa este archivo — cambia bastante la forma del código.
+      Tampoco usamos <code>A2AClient</code> (que en 0.3.x ya sale deprecado a favor de
+      <code>ClientFactory</code>, que es lo que usa <code>cliente.py</code>).</p>
     </div>
   </section>
 
@@ -550,6 +582,8 @@ python cliente.py "hola mundo gracias por favor"</pre>
     <div class="chips">
       <span class="chip">a2a-demo/agente_servidor.py</span>
       <span class="chip">a2a-demo/cliente.py</span>
+      <span class="chip">a2a-demo/requirements-a2a.txt</span>
+      <span class="chip">a2a-demo/iniciar_a2a_demo.ps1</span>
     </div>
   </footer>
 

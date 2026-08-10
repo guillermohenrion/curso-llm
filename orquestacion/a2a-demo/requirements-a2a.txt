@@ -1,0 +1,13 @@
+# Dependencias para el demo A2A con el SDK oficial (agente_servidor.py / cliente.py).
+#
+# Instalar con:  pip install -r requirements-a2a.txt
+#
+# IMPORTANTE: fijamos a2a-sdk <1.0 a proposito. La serie 1.x reescribio los
+# tipos centrales (AgentCard, Message, Task, ...) sobre protobuf en vez de
+# los modelos pydantic de 0.x, lo que cambia bastante la forma del codigo.
+# Esta demo usa la API 0.x (A2AStarletteApplication, AgentExecutor,
+# ClientFactory), que es la que documentan casi todos los tutoriales de A2A
+# hoy. No subir el pin sin revisar y reescribir agente_servidor.py/cliente.py.
+a2a-sdk[http-server]>=0.3,<1.0
+httpx>=0.28
+uvicorn>=0.34

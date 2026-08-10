@@ -1,7 +1,7 @@
 <#
-    Demo A2A (Agent2Agent): levanta agente_servidor.py en una ventana aparte
-    (si no esta corriendo ya), espera a que responda, y le manda un mensaje
-    con cliente.py. Sin dependencias externas (solo libreria estandar).
+    Demo A2A (Agent2Agent) con el SDK oficial (a2a-sdk): levanta
+    agente_servidor.py en una ventana aparte (si no esta corriendo ya),
+    espera a que responda, y le manda un mensaje con cliente.py.
 
     Uso:
       .\iniciar_a2a_demo.ps1                         -> mensaje de ejemplo
@@ -35,7 +35,27 @@ function Test-Servidor {
     }
 }
 
-# 1. Reutilizar el servidor si ya esta corriendo (de una corrida anterior)
+# 1. Activar el entorno virtual (esta 2 niveles arriba: a2a-demo/ -> orquestacion/ -> raiz)
+Write-Paso "Activando entorno virtual..."
+$RootDir = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+$activate = Join-Path $RootDir ".venv\Scripts\Activate.ps1"
+if (-not (Test-Path $activate)) {
+    Write-Host "No se encontró el venv en ..\..\.venv. Creá uno con: python -m venv .venv (en la raiz del proyecto)" -ForegroundColor Red
+    exit 1
+}
+. $activate
+
+# 2. Verificar que a2a-sdk este instalado
+Write-Paso "Verificando dependencias (a2a-sdk)..."
+python -c "import a2a" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Falta a2a-sdk. Instalalo con:" -ForegroundColor Red
+    Write-Host "  pip install -r requirements-a2a.txt" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  a2a-sdk OK." -ForegroundColor Green
+
+# 3. Reutilizar el servidor si ya esta corriendo (de una corrida anterior)
 Write-Paso "Verificando si el servidor A2A ya esta corriendo..."
 $servidorPropio = $false
 if (Test-Servidor) {
@@ -60,7 +80,7 @@ if (Test-Servidor) {
     Write-Host "  Servidor OK." -ForegroundColor Green
 }
 
-# 2. Correr el cliente contra el servidor
+# 4. Correr el cliente contra el servidor
 Write-Paso "Ejecutando cliente.py..."
 if ($Texto -and $Texto.Count -gt 0) {
     python cliente.py @Texto
